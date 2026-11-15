@@ -1,10 +1,39 @@
 # Cosmic Scribe
 
-An iPad handwriting practice app (single-file web app, no build step).
+An iPad handwriting practice app: a single-file web app with no build step. It retrains a child to write letters top-down (instead of one stroke from the bottom), then builds up to spacing, words, sentences, numbers and short stories. Space and sandbox theme.
 
-- Teaches top-down stroke order (every stroke starts at the top), on textbook three-line paper
-- Letters, numbers, words, sentences and short stories, with word-spacing coaching
-- Four levels: Trace, Star dots, Moon helper, Solo
-- Works with Apple Pencil or finger; progress is saved in the browser
+Live app: https://jevandavid.github.io/graesyn/ ・ Kid guide: https://jevandavid.github.io/graesyn/help.html
 
-Open `index.html` in Safari, or serve this repo with GitHub Pages. On iPad: Share, then Add to Home Screen.
+## What it does
+- **Top-start stroke training.** Every stroke starts at a green star at the top. A touch that starts low is refused and counted. Strokes must follow the numbered order and direction.
+- **Textbook three lines** (Space, Orbit, Surface, plus a Black Hole zone for tails). Start heights are checked against the real lines.
+- **Content:** letters a to z and A to Z, digits and number lines, words, sentences, and 3-sentence stories. The child's name is asked on first open and used in the title, words, sentences and stories.
+- **Four levels per item:** Trace, Star dots, Moon helper, Solo. A level unlocks only after a clean 3-star run on the one before it.
+- **Trace accuracy.** Ink turns orange when it leaves the path. In levels 2 to 4 a strayed stroke is erased right away and must be redone. Level 1 checks when the pencil lifts. Strictness (Gentle / Standard / Strict) is a parent setting.
+- **Spacing coaching:** a small gap inside words, one "moon" between words.
+- **Watch / Peek / Redo.** Watch animates the stroke order (the whole word on the Words tab).
+- **Mission Control (timed sessions):** 10, 15 or 20 minutes of active writing with a fuel gauge. Only clean 3-star runs earn fuel points (letter 1, word 3+, sentence 8, story 20, scaled by level). A first baseline session sets the target, and after that the target adapts (about 85% of recent median, +5% when hit). Hitting the target banks the points.
+- **Bank and screen time:** bank points are spent on screen time (default 2 points = 1 minute) with a full-screen countdown.
+- **Log:** per-session history, by-type matrix, letter and digit heat map, CSV copy.
+- **Parent settings** (behind a multiplication check, from the 📊 log): session length, points per minute, coach voice and speed, bank adjust, reset target, change name.
+- **How to Play** guide for the child (❓ button in the app).
+- Fun / Pro coach tone, daily goal, XP ranks. Works with Apple Pencil (palm rejection) or a finger.
+
+## Files
+| File | Purpose |
+|---|---|
+| `index.html` | The whole app (HTML, CSS, JS) |
+| `help.html` | Kid-friendly How to Play guide, opened inside the app by ❓ |
+| `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` | Install as a Home Screen app |
+| `sw.js` | Service worker: network-first (latest version when online, cached copy offline) |
+
+## Install on iPad
+Open the live link in Safari, tap Share, then **Add to Home Screen**. Progress is saved on the device (localStorage), separately for the Safari tab and the installed app.
+
+## Deploying changes
+Push to `main`; GitHub Pages republishes in a minute or two. Bump the cache name (`V`) in `sw.js` when you change the app files, and add any new files to its `FILES` list.
+
+## Notes
+- All progress and settings live in the browser, with no accounts or servers.
+- Voice uses the iPad's built-in speech; which voices appear depends on what Safari exposes.
+- Original art and sounds only; not affiliated with Minecraft.
