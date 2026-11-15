@@ -308,7 +308,8 @@ function audioInit(){ if(ac) return; try{ac=new (window.AudioContext||window.web
 function tone(f,d,t){ t=t||0; if(!ac||!P.sound) return; try{const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+t;
   o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.05,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d);}catch(e){} }
 const sfx={ok(){tone(660,.09);tone(880,.12,.09);},bad(){tone(170,.22);},win(){[523,659,784,1046].forEach((f,i)=>tone(f,.16,i*.12));}};
-function speak(m){ if(!P.sound) return; try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(m.replace(/[^\w\s.,!?'-]/g,''));u.rate=.95;speechSynthesis.speak(u);}catch(e){} }
+function speak(m){ if(!P.sound) return; try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(m.replace(/[^\w\s.,!?'-]/g,''));u.rate=P.rate||.95;
+  if(P.voice){const v=speechSynthesis.getVoices().find(x=>x.voiceURI===P.voice); if(v){u.voice=v;u.lang=v.lang;}} speechSynthesis.speak(u);}catch(e){} }
 const PRO={'Start a little to the RIGHT of your last letter.':'Start to the right of your last letter.',
 'Whoa, that is the BOTTOM! Rockets launch from the TOP. Start at the green star and fall down.':'That started at the bottom. Start at the green dot and pull down.',
 'Start at the right height. Check the line your stroke starts on.':'Check the start height for this stroke.',
@@ -843,10 +844,17 @@ function gate(cb){ const a=3+Math.floor(Math.random()*7),b=4+Math.floor(Math.ran
 function parentCard(){
   const row=(id,label,opts,cur)=>'<p class="small" style="margin-top:12px">'+label+'</p><div class="row" id="'+id+'">'+opts.map(o=>'<button class="btn '+(o===cur?'go':'alt')+'" data-v="'+o+'">'+o+'</button>').join('')+'</div>';
   showCard('<h2>PARENT SETTINGS</h2>'+row('rDur','Session length (minutes)',[10,15,20],P.cfg.dur)+row('rRate','Points per minute of screen time',[1,2,3,4],P.cfg.rate)+
+    '<p class="small" style="margin-top:12px">Coach voice (uses the voices installed on this iPad)</p><div class="row"><select id="vSel" style="font-size:16px;padding:8px;max-width:100%"></select></div><div class="row" id="vRate"></div><div class="row"><button class="btn alt" id="vTest">▶ Test voice</button></div>'+
     '<p class="small" style="margin-top:12px">Target: '+(P.tgt==null?'baseline (not set)':P.tgt+' pts')+' · Bank: '+fmt1(P.bank)+' pts</p>'+
     '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button></div>'+
     '<div class="row"><button class="btn go" id="bClose">Done</button></div>',true);
   [['rDur','dur'],['rRate','rate']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{P.cfg[k]=+b.dataset.v;save();renderSess();parentCard();}));
+  (function(){ let vs=[]; try{vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));}catch(e){}
+    const sel=$('vSel'); sel.innerHTML='<option value="">Default voice</option>'+vs.map(v=>'<option value="'+v.voiceURI+'"'+(P.voice===v.voiceURI?' selected':'')+'>'+v.name+' ('+v.lang+')</option>').join('');
+    sel.onchange=()=>{P.voice=sel.value||null;save();speak('Mission control ready.');};
+    [['Slow',.8],['Normal',.95],['Fast',1.1]].forEach(([n,r])=>{const b=document.createElement('button');b.className='btn '+(Math.abs((P.rate||.95)-r)<.01?'go':'alt');b.textContent=n;
+      b.onclick=()=>{P.rate=r;save();parentCard();speak('Mission control ready.');};$('vRate').appendChild(b);});
+    $('vTest').onclick=()=>{audioInit();const w=P.sound;P.sound=true;speak('Hi Graesyn! Mission control is ready.');P.sound=w;}; })();
   $('pM').onclick=()=>{P.bank=Math.max(0,fmt1(P.bank-5));save();renderSess();parentCard();};
   $('pP').onclick=()=>{P.bank=fmt1(P.bank+5);save();renderSess();parentCard();};
   $('pT').onclick=()=>{P.tgt=null;save();renderSess();parentCard();}; $('bClose').onclick=hideCard;
