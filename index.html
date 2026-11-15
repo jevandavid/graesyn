@@ -62,6 +62,19 @@ main{flex:1;min-height:0;display:flex;gap:10px}
 .lv.next::before{content:'▶ ';color:var(--gold)}
 #acts{display:flex;gap:6px}
 .act{background:#2f7fe0;font-size:13px}.act.warn{background:#c0562a}
+#sess{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 10px;border:3px solid #000;background:#101036;min-height:46px}
+#sess .btn{padding:8px 12px;font-size:12px}#sess .sm{font-family:var(--px);font-size:11px;color:var(--gold)}#sess .sp{flex:1}
+.tm{font-family:var(--px);font-size:16px;color:#fff;min-width:96px}.tm.pz{color:#ff9d4a;font-size:12px}
+.fuel{position:relative;flex:1;min-width:110px;max-width:300px;height:18px;border:3px solid #000;background:#000}
+.fuel i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2fa84f,#ffd84a);transition:width .4s}
+.fuel .mk{position:absolute;right:-3px;top:-6px;bottom:-6px;width:4px;background:#fff}.fuel.hit{box-shadow:0 0 12px #62ff7a}
+#stOv{position:fixed;inset:0;z-index:60;background:radial-gradient(circle at 50% 40%,#2b1a6b,#06061a);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:20px}
+#stOv.on{display:flex}#stOv h1{font-family:var(--px);color:var(--gold);font-size:clamp(18px,4vw,34px);margin:0}
+#stOv .big{font-family:var(--px);font-size:min(24vw,170px);color:#fff;text-shadow:6px 6px 0 #000}
+table.lg{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}table.lg th,table.lg td{padding:4px 6px;border-bottom:1px solid #2a2a66;text-align:center}table.lg th{color:var(--gold);font-family:var(--px);font-size:10px}
+.heat{justify-content:center;display:flex;flex-wrap:wrap;gap:3px;margin:6px 0}.heat span{width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #000;background:#333;color:#fff;font-size:14px}
+.trend{justify-content:center;display:flex;align-items:flex-end;gap:4px;height:60px;margin:6px 0}.trend i{flex:1;max-width:34px;background:#4a5bd6;min-height:2px}.trend i.h{background:#62b335}
+#card input.pin{font-size:24px;width:120px;text-align:center;padding:6px;margin:6px}
 #coach{display:flex;gap:12px;align-items:center;padding:8px 14px;border:3px solid #000;background:var(--panel2);min-height:56px;
   font-size:19px;font-weight:800;line-height:1.2}
 #coach.good{background:#1d5a2b}#coach.warn{background:#6b3a14}
@@ -123,6 +136,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
           <button class="act warn" id="btnRedo">↺ Redo</button>
         </div>
       </div>
+      <div id="sess"></div>
       <div id="coach"><span id="cAv">🧑‍🚀</span><span id="cMsg"></span></div>
       <div id="paper"><canvas id="cv"></canvas></div>
       <div id="legend">
@@ -135,6 +149,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
   </main>
 </div>
 
+<div id="stOv"><h1>📺 SCREEN TIME UNLOCKED</h1><div class="big" id="stT">0:00</div><p id="stMsg" style="font-size:18px"></p><div class="row"><button class="btn danger" id="stDone">Done early</button></div></div>
 <div class="modal" id="modal"><div class="card" id="card"></div></div>
 <div class="modal" id="demoModal"><div class="card wide">
   <h2>WATCH THE METEOR FALL</h2>
@@ -283,6 +298,8 @@ let P={xp:0,sound:true,pro:false,strict:1,day:null,done:{},last:{},stats:{top:0,
 try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); P=Object.assign(P,o); P.stats=Object.assign({top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0},o.stats||{});}}catch(e){}
 // Levels earned before mastery-gating are re-locked once (progress/XP kept).
 try{ if(P.gate!==2){ for(const k in P.done){ if(P.done[k]) P.done[k].lv=0; } P.gate=2; localStorage.setItem(KEY,JSON.stringify(P)); } }catch(e){}
+function ensureP(){ P.bank=P.bank||0; P.sess=P.sess||[]; P.cfg=Object.assign({dur:15,rate:2},P.cfg||{}); if(P.tgt===undefined)P.tgt=null; P.ls=P.ls||{}; if(P.live===undefined)P.live=null; if(P.st===undefined)P.st=null; }
+ensureP();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
 
 /* ============ audio + voice ============ */
@@ -329,7 +346,7 @@ function layoutText(text,gi,gw){
   return {items,width:maxW,rows:row+1};
 }
 function resetRun(){
-  S.run={bottom:0,miss:0,fail:0,gapOk:0,gapBad:0};
+  S.run={bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,t0:performance.now()};
   S.chars=S.layout.items.map(it=>it.space?{ch:' ',space:true,done:true,nl:!!it.nl,row:it.row}:{ch:it.ch,tpl:TPL[it.ch],ox:S.level<3?M+it.ox:null,strokes:[],done:false,row:it.row,top:TOP+it.row*ROW_H});
   S.ci=0;S.si=0;S.cur=null;S.prevRight=null;S.spaceSkipped=false;S.locked=false;
   advanceSpaces();
@@ -521,6 +538,7 @@ function finish(){
   S.locked=true; const issues=S.run.bottom+S.run.gapBad+Math.floor((S.run.fail+S.run.miss)/2);
   const stars=issues===0?3:issues<=2?2:1; const key=S.mode+':'+S.item; const d=P.done[key]||{lv:0,stars:0};
   const mastered=stars===3; if(mastered&&S.level>d.lv) d.lv=S.level; d.stars=Math.max(d.stars,stars); P.done[key]=d;
+  const res=scoreRun(stars);
   const gain=stars*10+(S.level-1)*5+(S.mode==='paras'?10:0); P.xp+=gain; P.stats.runs++; save(); updateHeader(); buildPicker(); buildLevels();
   sfx.win(); speak(stars===3?'Mission complete! Perfect!':'Mission complete!');
   const lines=[]; if(S.run.bottom) lines.push('Bottom starts caught: '+S.run.bottom+'. Next time launch from the top!');
@@ -531,17 +549,17 @@ function finish(){
   const canUp=mastered&&S.level<4;
   lines.push(mastered?(S.level<4?'🔓 MASTERED! Level '+(S.level+1)+' unlocked.':'🏆 MASTERED! You cleared every level.'):'Not mastered yet. To unlock Level '+Math.min(4,S.level+1)+', finish this level with 3 stars: top starts, clean spacing, and at most one redo.');
   showCard('<h2>MISSION COMPLETE</h2><div class="stars">'+'⭐'.repeat(stars)+'<span style="opacity:.25">'+'⭐'.repeat(3-stars)+'</span></div>'+
-    '<p>+'+gain+' XP</p><p>'+lines.join('<br>')+'</p>'+
+    '<p>+'+gain+' XP'+(res?' · ⛽ <b style="color:#ffd84a">+'+res.pts+' pts</b>':'')+'</p>'+(res&&res.note?'<p class="small">'+res.note+'</p>':'')+'<p>'+lines.join('<br>')+'</p>'+
     '<div class="row">'+(canUp?'<button class="btn go" id="bUp">Level '+(S.level+1)+' ▶</button>':'<button class="btn go" id="bAgain">Try again</button>')+
     '<button class="btn alt" id="bNext">Next ▶</button><button class="btn" id="bClose">Close</button></div>');
   if(canUp) $('bUp').onclick=()=>{hideCard();loadItem(S.mode,S.item,S.level+1);}; else $('bAgain').onclick=()=>{hideCard();loadItem(S.mode,S.item,S.level);};
-  $('bNext').onclick=()=>{hideCard();nextItem();}; $('bClose').onclick=hideCard;
+  $('bNext').onclick=()=>{hideCard();SSn()?sessionNext():nextItem();}; $('bClose').onclick=hideCard;
 }
 function nextItem(){
   const list=S.mode==='nums'?(/^\d$/.test(S.item)?DIGITS:NUMS):S.mode==='letters'?(LOWER.includes(S.item)?LOWER:UPPER):S.mode==='words'?WORDS:S.mode==='sentences'?SENTS:PARAS;
   const i=list.indexOf(S.item); loadItem(S.mode,list[(i+1)%list.length]);
 }
-function showCard(h){$('card').innerHTML=h;$('modal').classList.add('on');}
+function showCard(h,wide){$('card').className='card'+(wide?' wide':'');$('card').innerHTML=h;$('modal').classList.add('on');}
 function hideCard(){$('modal').classList.remove('on');}
 function report(){
   const s=P.stats,att=s.top+s.bottom+s.miss,rate=att?Math.round(100*s.top/att):0,gp=s.gapOk+s.gapBad?Math.round(100*s.gapOk/(s.gapOk+s.gapBad)):0;
@@ -552,12 +570,12 @@ function report(){
     '<span>Missions finished</span><b>'+s.runs+'</b><span>Items cleared / mastered (level 4)</span><b>'+started+' / '+mastered+'</b></div>'+
     '<p class="small">Saved on this device only. “Top-start” is the key number: the goal is to see it climb while bottom-up starts shrink.</p>'+
     '<p class="small" style="margin-top:14px">Parent setting: how closely strokes must follow the trace</p><div class="row" id="strictRow" style="margin-top:6px"></div>'+
-    '<div class="row"><button class="btn danger" id="bReset">Reset progress</button><button class="btn go" id="bClose">Close</button></div>');
+    '<div class="row"><button class="btn alt" id="bLog2">📊 Session log</button><button class="btn danger" id="bReset">Reset progress</button><button class="btn go" id="bClose">Close</button></div>');
   ['Gentle','Standard','Strict'].forEach((n,i)=>{const b=document.createElement('button');b.className='btn '+(P.strict===i?'go':'alt');b.textContent=n;
     b.onclick=()=>{P.strict=i;save();[...$('strictRow').children].forEach((x,j)=>x.className='btn '+(j===i?'go':'alt'));};$('strictRow').appendChild(b);});
   let armed=false; $('bReset').onclick=()=>{ if(!armed){armed=true;$('bReset').textContent='Tap again to erase';return;}
-    P={xp:0,sound:P.sound,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};save();updateHeader();hideCard();setMode(S.mode);};
-  $('bClose').onclick=hideCard;
+    P={xp:0,sound:P.sound,done:{},last:{},cfg:P.cfg,stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};ensureP();save();renderSess();updateHeader();hideCard();setMode(S.mode);};
+  $('bLog2').onclick=logCard; $('bClose').onclick=hideCard;
 }
 
 /* ============ drawing ============ */
@@ -717,10 +735,146 @@ window.addEventListener('resize',()=>fit());
   for(let i=0;i<110;i++){const c=['#fff','#cfe3ff','#ffe9a8'][i%3];a.push(Math.floor(Math.random()*w)+'px '+Math.floor(Math.random()*h)+'px '+c);}
   $('stars').style.boxShadow=a.join(',');})();
 
+
+/* ============ timed sessions, points, bank, screen time ============ */
+const TYPES=[['letters','Letters'],['numbers','Numbers'],['words','Words'],['sentences','Sentences'],['stories','Stories']];
+const tkey=()=>S.mode==='letters'?'letters':S.mode==='nums'?'numbers':S.mode==='words'?'words':S.mode==='sentences'?'sentences':'stories';
+const LVM=[0,.5,.75,1,1.25], PAT=['letters','words','letters','numbers','sentences','letters','words','numbers','letters','stories'];
+const fmt1=x=>Math.round(x*10)/10;
+const SSn=()=>P.live&&P.live.on?P.live:null;
+const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return Math.floor(ms/60)+':'+String(ms%60).padStart(2,'0');};
+const emptyBy=()=>{const o={};TYPES.forEach(t=>o[t[0]]={a:0,c:0,r:0,b:0,s:0,p:0});return o;};
+function baseP(){ const n=S.text.replace(/\s/g,'').length;
+  if(isDrill()) return 1; if(S.mode==='words') return 3+Math.floor(Math.max(0,n-4)/4); if(S.mode==='nums') return 3; if(S.mode==='sentences') return 8; return 20; }
+let lastTick=Date.now(), lastAct=0, tickN=0;
+cv.addEventListener('pointerdown',()=>{lastAct=Date.now();});
+cv.addEventListener('pointermove',()=>{lastAct=Date.now();});
+function scoreRun(stars){
+  const clean=stars===3,t=tkey(),secs=Math.min(180,(performance.now()-S.run.t0)/1000),ik=S.mode+':'+S.item;
+  if(isDrill()){ const q=P.ls[S.item]||(P.ls[S.item]={a:0,c:0,r:0}); q.a++; if(clean)q.c++; q.r+=S.run.fail+S.run.miss+S.run.bottom; }
+  const s=SSn(); if(!s){save();return null;}
+  const b=s.by[t]; b.a++; b.r+=S.run.fail+S.run.miss; b.b+=S.run.bottom; if(clean){b.c++;b.s+=secs;}
+  const res={pts:0,note:''};
+  if(!clean) res.note='Only clean 3-star runs earn points: top starts, on the path, good spacing, at most one redo.';
+  else{ const n=s.cl[ik]||0; s.cl[ik]=n+1;
+    if(n>=2) res.note='You already scored this one twice. Pick a new one for points.';
+    else{ let pts=baseP()*LVM[S.level];
+      if(isDrill()&&s.tgt){ const room=s.tgt*0.5-s.dp; if(room<=0){pts=0;res.note='Letter and number points are maxed for this session. Try words and sentences!';} else pts=Math.min(pts,room); }
+      pts=fmt1(pts); if(isDrill()) s.dp=fmt1(s.dp+pts); s.pts=fmt1(s.pts+pts); b.p=fmt1(b.p+pts); res.pts=pts; } }
+  if(s.tgt&&s.pts>=s.tgt&&!s.hit){ s.hit=true; res.note=(res.note?res.note+' ':'')+'🎯 TARGET HIT! Keep going. Your points bank when the session ends.'; sfx.win(); }
+  save(); renderSess(); return res;
+}
+function gotoItem(mode,item){ document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode)); loadItem(mode,item); }
+function sessionNext(){
+  const s=SSn(); if(!s) return nextItem();
+  const t=PAT[s.n%PAT.length]; s.n++; s.seen=s.seen||{};
+  const mode=t==='letters'?'letters':t==='numbers'?'nums':t==='words'?'words':t==='sentences'?'sentences':'paras';
+  const list=t==='letters'?LOWER.concat(UPPER):t==='numbers'?DIGITS.concat(NUMS):t==='words'?WORDS:t==='sentences'?SENTS:PARAS;
+  let best=list[0],bs=1e9;
+  list.forEach((it,i)=>{const k=mode+':'+it,d=P.done[k],sc=(s.cl[k]||0)*1000+(d?d.lv:0)*100+(s.seen[k]||0)*10+i/1000; if(sc<bs){bs=sc;best=it;}});
+  s.seen[mode+':'+best]=(s.seen[mode+':'+best]||0)+1; save(); gotoItem(mode,best);
+}
+function startSession(){
+  audioInit(); P.live={on:true,t:Date.now(),act:0,pts:0,dp:0,tgt:P.tgt,base:P.tgt==null,by:emptyBy(),cl:{},seen:{},n:0,dur:P.cfg.dur*60000,hit:false};
+  lastAct=Date.now(); lastTick=Date.now(); save(); sessionNext();
+  say(P.live.base?'Baseline mission! No pressure. Just show what you can do.':'Mission Control is live! Fill the fuel gauge to the target.','info');
+  renderSess();
+}
+function endSession(manual){
+  const s=SSn(); if(!s) return; s.on=false;
+  const base=s.base, hit=base||(s.tgt!=null&&s.pts>=s.tgt), banked=hit?s.pts:0; P.bank=fmt1(P.bank+banked);
+  P.sess.push({ts:s.t,d:new Date(s.t).toLocaleDateString('en-CA'),min:Math.round(s.act/6000)/10,pts:s.pts,tgt:s.tgt,base,hit:!!hit,banked,by:s.by}); if(P.sess.length>90)P.sess.shift();
+  const nextOld=P.tgt;
+  if(!(base&&s.act<300000)){ const last=P.sess.slice(-3).map(x=>x.pts).sort((a,b)=>a-b),med=last[Math.floor(last.length/2)]; let nt=Math.max(5,Math.round(med*.85)); if(!base&&hit) nt=Math.max(nt,Math.ceil(s.tgt*1.05)); P.tgt=nt; }
+  P.live=null; save(); renderSess(); updateHeader();
+  const by=Object.entries(s.by).filter(([k,v])=>v.a).map(([k,v])=>'<tr><td>'+k+'</td><td>'+v.a+'</td><td>'+v.c+'</td><td>'+v.p+'</td></tr>').join('');
+  sfx.win();
+  showCard('<h2>SESSION COMPLETE</h2><div class="stat"><span>Time on task</span><b>'+(Math.round(s.act/6000)/10)+' min</b><span>Fuel collected</span><b>'+s.pts+' pts</b>'+
+    '<span>Target</span><b>'+(base?'baseline':s.tgt+' pts')+'</b></div>'+
+    '<p style="font-size:20px">'+(base?'🛰️ Baseline logged! Everything you earned went to the bank. Next target: <b>'+P.tgt+' pts</b>.':hit?'🎯 TARGET HIT! <b>+'+banked+' pts</b> banked.':'⛽ Fuel at '+Math.round(s.pts/s.tgt*100)+'%. No bank points this time. Refuel and try again!')+'</p>'+
+    '<p>🏦 Bank: <b>'+P.bank+' pts</b>'+(hit&&!base?' · next target '+P.tgt+' pts':'')+'</p>'+
+    (by?'<table class="lg"><tr><th>TYPE</th><th>TRIED</th><th>CLEAN</th><th>PTS</th></tr>'+by+'</table>':'')+
+    '<div class="row">'+(P.bank>0?'<button class="btn alt" id="eScr">📺 Use screen time</button>':'')+'<button class="btn alt" id="eLog">📊 Log</button><button class="btn go" id="bClose">Close</button></div>');
+  if($('eScr')) $('eScr').onclick=screenCard; $('eLog').onclick=logCard; $('bClose').onclick=hideCard;
+}
+function renderSess(){
+  const el=$('sess'),s=SSn(); let h='';
+  if(!s) h='<button class="btn go" id="sStart">▶ Start Mission Control · '+P.cfg.dur+' min</button><span class="sm">'+(P.tgt==null?'First run = unpressured baseline':'Target: '+P.tgt+' pts')+'</span>';
+  else h='<span class="tm" id="sTm">⏱ 0:00</span><div class="fuel" id="sFuel"><i id="sFi"></i>'+(s.tgt?'<b class="mk"></b>':'')+'</div><span class="sm" id="sPts"></span><button class="btn" id="sEnd">End</button>';
+  h+='<span class="sp"></span><button class="btn" id="sBank">🏦 '+fmt1(P.bank)+'</button><button class="btn alt" id="sScreen">📺 Screen time</button><button class="btn alt" id="sLog">📊</button>';
+  el.innerHTML=h;
+  if($('sStart')) $('sStart').onclick=startSession;
+  if($('sEnd')) $('sEnd').onclick=()=>{ if($('sEnd').dataset.arm){endSession(true);} else {$('sEnd').dataset.arm=1;$('sEnd').textContent='Sure?';setTimeout(()=>{if($('sEnd')){delete $('sEnd').dataset.arm;$('sEnd').textContent='End';}},3000);} };
+  $('sBank').onclick=screenCard; $('sScreen').onclick=screenCard; $('sLog').onclick=logCard; updSess();
+}
+function updSess(){
+  const s=SSn(); if(!s||!$('sTm')) return; const paused=Date.now()-lastAct>=30000;
+  $('sTm').textContent='⏱ '+mmss(s.dur-s.act)+(paused?' paused':''); $('sTm').className='tm'+(paused?' pz':'');
+  const goal=s.tgt||30; $('sFi').style.width=Math.min(100,s.pts/goal*100)+'%'; $('sFuel').className='fuel'+(s.hit?' hit':'');
+  $('sPts').textContent='⛽ '+s.pts+(s.tgt?' / '+s.tgt:' pts · baseline');
+}
+setInterval(()=>{
+  const now=Date.now(),dt=Math.min(1000,now-lastTick); lastTick=now; const s=SSn();
+  if(s){ if(now-lastAct<30000) s.act+=dt; updSess(); if(++tickN%20===0) save();
+    if(s.act>=s.dur&&!S.cur&&!$('modal').classList.contains('on')) endSession(false); }
+  stTick();
+},250);
+
+/* screen time (spent from the bank) */
+function screenCard(){
+  const r=P.cfg.rate; let h='<h2>📺 SCREEN TIME</h2><p style="font-size:20px">🏦 Bank: <b>'+fmt1(P.bank)+' pts</b></p><p class="small">'+r+' pts = 1 minute. Points are deducted when you start.</p><div class="row">';
+  [5,10,15,20].forEach(m=>{const c=m*r,ok=P.bank>=c; h+='<button class="btn '+(ok?'go':'')+'" data-m="'+m+'"'+(ok?'':' disabled style="opacity:.4"')+'>'+m+' min<br>'+c+' pts</button>';});
+  h+='</div><div class="row"><button class="btn" id="bClose">Close</button></div>'; showCard(h);
+  document.querySelectorAll('#card [data-m]').forEach(b=>b.onclick=()=>{const m=+b.dataset.m,c=m*r; if(P.bank<c) return; P.bank=fmt1(P.bank-c); P.st={end:Date.now()+m*60000,rate:r}; save(); hideCard(); renderSess(); stTick();});
+  $('bClose').onclick=hideCard;
+}
+function stTick(){
+  const ov=$('stOv'); if(!P.st){ov.classList.remove('on');return;}
+  ov.classList.add('on'); const left=P.st.end-Date.now();
+  if(left>0){ $('stT').textContent=mmss(left); $('stMsg').textContent='Enjoy! Your points paid for this.'; $('stDone').textContent='Done early (refund whole unused minutes)'; }
+  else { if(!P.st.over){P.st.over=true;sfx.win();save();} $('stT').textContent='0:00'; $('stMsg').textContent="Time's up! Back to the mission."; $('stDone').textContent='Back to Mission Control'; }
+}
+$('stDone').onclick=()=>{ if(P.st){ const left=P.st.end-Date.now(); if(left>60000) P.bank=fmt1(P.bank+Math.floor(left/60000)*P.st.rate); P.st=null; save(); $('stOv').classList.remove('on'); renderSess(); } };
+
+/* parent gate + settings */
+function gate(cb){ const a=3+Math.floor(Math.random()*7),b=4+Math.floor(Math.random()*6);
+  showCard('<h2>PARENT CHECK</h2><p>What is '+a+' × '+b+'?</p><input class="pin" id="pin" inputmode="numeric" autocomplete="off"><div class="row"><button class="btn go" id="pOk">OK</button><button class="btn" id="bClose">Cancel</button></div>');
+  $('pOk').onclick=()=>{ if(+$('pin').value===a*b) cb(); else {$('pin').value='';$('pin').placeholder='try again';} }; $('bClose').onclick=hideCard; }
+function parentCard(){
+  const row=(id,label,opts,cur)=>'<p class="small" style="margin-top:12px">'+label+'</p><div class="row" id="'+id+'">'+opts.map(o=>'<button class="btn '+(o===cur?'go':'alt')+'" data-v="'+o+'">'+o+'</button>').join('')+'</div>';
+  showCard('<h2>PARENT SETTINGS</h2>'+row('rDur','Session length (minutes)',[10,15,20],P.cfg.dur)+row('rRate','Points per minute of screen time',[1,2,3,4],P.cfg.rate)+
+    '<p class="small" style="margin-top:12px">Target: '+(P.tgt==null?'baseline (not set)':P.tgt+' pts')+' · Bank: '+fmt1(P.bank)+' pts</p>'+
+    '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button></div>'+
+    '<div class="row"><button class="btn go" id="bClose">Done</button></div>',true);
+  [['rDur','dur'],['rRate','rate']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{P.cfg[k]=+b.dataset.v;save();renderSess();parentCard();}));
+  $('pM').onclick=()=>{P.bank=Math.max(0,fmt1(P.bank-5));save();renderSess();parentCard();};
+  $('pP').onclick=()=>{P.bank=fmt1(P.bank+5);save();renderSess();parentCard();};
+  $('pT').onclick=()=>{P.tgt=null;save();renderSess();parentCard();}; $('bClose').onclick=hideCard;
+}
+
+/* log matrix */
+function logCard(){
+  const ss=P.sess.slice(-7), agg=emptyBy(); ss.forEach(x=>TYPES.forEach(([k])=>{const v=x.by[k]; if(!v)return; const a=agg[k]; a.a+=v.a;a.c+=v.c;a.r+=v.r;a.b+=v.b;a.s+=v.s;a.p=fmt1(a.p+v.p);}));
+  const rows=ss.slice().reverse().map(x=>'<tr><td>'+x.d+'</td><td>'+x.min+'</td><td>'+x.pts+'</td><td>'+(x.base?'base':x.tgt)+'</td><td>'+(x.base?'—':x.hit?'✔':'✖')+'</td><td>'+x.banked+'</td></tr>').join('');
+  const mx=TYPES.map(([k,n])=>{const a=agg[k]; return '<tr><td>'+n+'</td><td>'+a.a+'</td><td>'+a.c+'</td><td>'+(a.a?Math.round(100*a.c/a.a)+'%':'—')+'</td><td>'+a.r+'</td><td>'+a.b+'</td><td>'+(a.c?Math.round(a.s/a.c)+'s':'—')+'</td><td>'+a.p+'</td></tr>';}).join('');
+  const heat=LOWER.concat(UPPER,DIGITS).map(c=>{const q=P.ls[c]; let bg='#333'; if(q&&q.a){const r=q.c/q.a; bg=r>=.8?'#2e8f3f':r>=.5?'#b8941f':'#a83232';} return '<span style="background:'+bg+'" title="'+c+': '+(q?q.c+' clean / '+q.a+' tries, '+q.r+' redos':'not tried')+'">'+c+'</span>';}).join('');
+  const mxp=Math.max(1,...P.sess.slice(-14).map(x=>x.pts)); const tr=P.sess.slice(-14).map(x=>'<i class="'+(x.hit&&!x.base?'h':'')+'" style="height:'+Math.round(x.pts/mxp*100)+'%" title="'+x.d+': '+x.pts+' pts"></i>').join('');
+  showCard('<h2>📊 SESSION LOG</h2><div class="stat"><span>Bank</span><b>'+fmt1(P.bank)+' pts</b><span>Next target</span><b>'+(P.tgt==null?'baseline':P.tgt+' pts')+'</b><span>Sessions logged</span><b>'+P.sess.length+'</b></div>'+
+    (rows?'<p class="small">Last sessions</p><table class="lg"><tr><th>DATE</th><th>MIN</th><th>PTS</th><th>TARGET</th><th>HIT</th><th>BANKED</th></tr>'+rows+'</table><p class="small">Points per session (green = target hit)</p><div class="trend">'+tr+'</div>':'<p>No sessions yet. Start Mission Control to log one.</p>')+
+    '<p class="small">By type, last 7 sessions (redo = strokes erased or unfinished; bottom = bottom-up starts caught)</p><table class="lg"><tr><th>TYPE</th><th>TRIED</th><th>CLEAN</th><th>CLEAN%</th><th>REDO</th><th>BOTTOM</th><th>SEC/CLEAN</th><th>PTS</th></tr>'+mx+'</table>'+
+    '<p class="small">Letter and number heat map (green clean, yellow shaky, red needs work, gray not tried)</p><div class="heat">'+heat+'</div>'+
+    '<div class="row"><button class="btn alt" id="lCsv">Copy CSV</button><button class="btn alt" id="lPar">⚙ Parent</button><button class="btn go" id="bClose">Close</button></div>',true);
+  $('bClose').onclick=hideCard; $('lPar').onclick=()=>gate(parentCard);
+  $('lCsv').onclick=()=>{ const L=['date,minutes,points,target,hit,banked,type,tried,clean,redo,bottom,sec_per_clean,type_points'];
+    P.sess.forEach(x=>TYPES.forEach(([k])=>{const v=x.by[k]; if(v&&v.a) L.push([x.d,x.min,x.pts,x.tgt==null?'':x.tgt,x.base?'baseline':x.hit?'hit':'miss',x.banked,k,v.a,v.c,v.r,v.b,v.c?Math.round(v.s/v.c):'',v.p].join(','));}));
+    const t=L.join('\n'); const done=()=>{$('lCsv').textContent='Copied!';};
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>prompt('Copy:',t)); else prompt('Copy:',t); };
+}
+
 try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js'); }catch(e){}
-updateHeader(); setMode('letters');
+updateHeader(); setMode('letters'); renderSess(); stTick();
 requestAnimationFrame(loop); requestAnimationFrame(demoLoop);
-window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU})};
+window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
 })();
 </script>
 </body>
