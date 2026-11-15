@@ -113,7 +113,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
 <div id="stars"></div>
 <div id="app">
   <header>
-    <div class="logo">🚀 COSMIC SCRIBE<small>COMMANDER GRAESYN · HANDWRITING MISSION</small></div>
+    <div class="logo">🚀 COSMIC SCRIBE<small>COMMANDER ASTRONAUT · HANDWRITING MISSION</small></div>
     <nav id="tabs">
       <button class="tab" data-mode="letters">Letters</button>
       <button class="tab" data-mode="words">Words</button>
@@ -284,11 +284,11 @@ function family(c){ if(/[0-9]/.test(c)) return 'num'; if(/[A-Z]/.test(c)) return
 
 /* ============ content ============ */
 const LOWER='abcdefghijklmnopqrstuvwxyz'.split(''), UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-const WORDS=['Graesyn','star','moon','mars','sun','comet','orbit','rocket','planet','galaxy','nebula','dig','cave','gold','build','star map','black hole','moon base','dig down'];
-const PARAS=['I am Graesyn.\nI am a pilot.\nI fly to Mars.','I see a star.\nIt is big.\nIt is bright.','Mars is red.\nIt is far.\nI want to go.','I see the moon.\nI dig a cave.\nI find gold.','A rocket flies.\nIt zips past.\nIt lands soon.','I mine a gem.\nI build a base.\nThe sun is up.'];
+const WORDS=['{N}','star','moon','mars','sun','comet','orbit','rocket','planet','galaxy','nebula','dig','cave','gold','build','star map','black hole','moon base','dig down'];
+const PARAS=['I am {N}.\nI am a pilot.\nI fly to Mars.','I see a star.\nIt is big.\nIt is bright.','Mars is red.\nIt is far.\nI want to go.','I see the moon.\nI dig a cave.\nI find gold.','A rocket flies.\nIt zips past.\nIt lands soon.','I mine a gem.\nI build a base.\nThe sun is up.'];
 const DIGITS='0123456789'.split('');
 const NUMS=['5 4 3 2 1','3 2 1 Go!','1 2 3 4 5','10 20 30','Earth has 1 moon.','Mars has 2 moons.','1 + 1 = 2','2 + 3 = 5','5 + 5 = 10'];
-const SENTS=['I am Graesyn.','Graesyn can fly.','I see a star.','Mars is red.','The sun is hot.','We dig for gold.','Space is big.'];
+const SENTS=['I am {N}.','{N} can fly.','I see a star.','Mars is red.','The sun is hot.','We dig for gold.','Space is big.'];
 const RANKS=[[0,'CADET'],[100,'PILOT'],[300,'NAVIGATOR'],[600,'CAPTAIN'],[1000,'COMMANDER']];
 const INV=[[50,'🌙'],[100,'🪐'],[200,'☄️'],[300,'🚀'],[500,'🌌'],[800,'🕳️'],[1000,'💎']];
 
@@ -299,7 +299,11 @@ try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); P=Object.ass
 // Levels earned before mastery-gating are re-locked once (progress/XP kept).
 try{ if(P.gate!==2){ for(const k in P.done){ if(P.done[k]) P.done[k].lv=0; } P.gate=2; localStorage.setItem(KEY,JSON.stringify(P)); } }catch(e){}
 function ensureP(){ P.bank=P.bank||0; P.sess=P.sess||[]; P.cfg=Object.assign({dur:15,rate:2},P.cfg||{}); if(P.tgt===undefined)P.tgt=null; P.ls=P.ls||{}; if(P.live===undefined)P.live=null; if(P.st===undefined)P.st=null; }
+if(!P.nm2){ const fix=o=>{ if(!o) return; Object.keys(o).forEach(k=>{ if(k.includes('Graesyn')){ o[k.replace('Graesyn','{N}')]=o[k]; delete o[k]; } }); };
+  fix(P.done); if(P.last) Object.keys(P.last).forEach(m=>{ if(typeof P.last[m]==='string') P.last[m]=P.last[m].replace('Graesyn','{N}'); }); if(P.live){fix(P.live.cl);fix(P.live.seen);} P.nm2=1; }
 ensureP();
+function NM(){ return P.name||'Astronaut'; }
+function R(t){ return String(t).replace(/\{N\}/g,NM()); }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
 
 /* ============ audio + voice ============ */
@@ -366,7 +370,7 @@ function fit(){
 function loadItem(mode,item,lv){
   S.mode=mode;S.item=item;P.last[mode]=item;
   const d=P.done[mode+':'+item]; S.level=lv||Math.min(4,(d?d.lv:0)+1);
-  S.text=(mode==='letters'||(mode==='nums'&&/^\d$/.test(item)))?item.repeat(3):item;
+  S.text=(mode==='letters'||(mode==='nums'&&/^\d$/.test(item)))?item.repeat(3):R(item);
   S.layout=layoutText(S.text,12,52);
   resetRun(); fit(); buildPicker(); buildLevels(); intro(); save();
 }
@@ -380,7 +384,7 @@ function intro(){
   say(m,'info');
 }
 function setMode(m){
-  const def_={letters:'a',words:'Graesyn',sentences:'I am Graesyn.',nums:'1',paras:PARAS[0]};
+  const def_={letters:'a',words:'{N}',sentences:'I am {N}.',nums:'1',paras:PARAS[0]};
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   loadItem(m,P.last[m]||def_[m]);
 }
@@ -395,7 +399,7 @@ function glyph(c){ // picker thumbnail drawn from the exact strokes taught (so a
 }
 function buildPicker(){
   const el=$('picker'); el.innerHTML='';
-  const mk=(label,item,cls)=>{const b=document.createElement('button');b.className='blk '+(cls||'');if((S.mode==='letters'||(S.mode==='nums'&&/^\d$/.test(item)))&&TPL[item]) b.appendChild(glyph(item)); else b.textContent=label; b.setAttribute('aria-label',label);
+  const mk=(label,item,cls)=>{const b=document.createElement('button');b.className='blk '+(cls||'');if((S.mode==='letters'||(S.mode==='nums'&&/^\d$/.test(item)))&&TPL[item]) b.appendChild(glyph(item)); else b.textContent=R(label); b.setAttribute('aria-label',R(label));
     const d=P.done[S.mode+':'+item]; if(d&&d.lv>0){b.classList.add('done');b.dataset.lv=d.lv>=4?'🏆':'⭐';}
     if(item===S.item) b.classList.add('sel'); b.onclick=()=>{audioInit();loadItem(S.mode,item);}; return b;};
   if(S.mode==='nums'){
@@ -423,7 +427,7 @@ function updateHeader(){
   $('rankName').textContent=rn[1]+' · '+P.xp+' XP';
   $('xpFill').style.width=(nx?Math.min(100,(P.xp-rn[0])/(nx[0]-rn[0])*100):100)+'%';
   $('inv').textContent=INV.filter(i=>P.xp>=i[0]).map(i=>i[1]).join('');
-  $('btnSound').textContent=P.sound?'🔊':'🔇'; $('btnTone').textContent=P.pro?'PRO':'FUN';
+  document.querySelector('.logo small').textContent='COMMANDER '+NM().toUpperCase()+' · HANDWRITING MISSION'; $('btnSound').textContent=P.sound?'🔊':'🔇'; $('btnTone').textContent=P.pro?'PRO':'FUN';
   const td=new Date().toLocaleDateString('en-CA'); $('goal').textContent='TODAY '+Math.min(3,(P.day&&P.day.d===td)?P.day.n:0)+'/3';
 }
 
@@ -728,7 +732,7 @@ $('btnRedo').onclick=()=>{S.level>=0&&(resetRun(),intro());};
 $('btnReport').onclick=report;
 $('btnTone').onclick=()=>{P.pro=!P.pro;save();updateHeader();intro();};
 $('btnSound').onclick=()=>{P.sound=!P.sound;if(!P.sound){try{speechSynthesis.cancel();}catch(e){}}save();updateHeader();};
-$('modal').addEventListener('click',e=>{if(e.target.id==='modal') hideCard();});
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal'&&P.name) hideCard();});
 new ResizeObserver(()=>fit()).observe(paper);
 window.addEventListener('resize',()=>fit());
 // blocky pixel stars
@@ -846,7 +850,7 @@ function parentCard(){
   showCard('<h2>PARENT SETTINGS</h2>'+row('rDur','Session length (minutes)',[10,15,20],P.cfg.dur)+row('rRate','Points per minute of screen time',[1,2,3,4],P.cfg.rate)+
     '<p class="small" style="margin-top:12px">Coach voice (uses the voices installed on this iPad)</p><div class="row"><select id="vSel" style="font-size:16px;padding:8px;max-width:100%"></select></div><div class="row" id="vRate"></div><div class="row"><button class="btn alt" id="vTest">▶ Test voice</button></div>'+
     '<p class="small" style="margin-top:12px">Target: '+(P.tgt==null?'baseline (not set)':P.tgt+' pts')+' · Bank: '+fmt1(P.bank)+' pts</p>'+
-    '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button></div>'+
+    '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button><button class="btn alt" id="pN">Change name</button></div>'+
     '<div class="row"><button class="btn go" id="bClose">Done</button></div>',true);
   [['rDur','dur'],['rRate','rate']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{P.cfg[k]=+b.dataset.v;save();renderSess();parentCard();}));
   (function(){ let vs=[]; try{vs=speechSynthesis.getVoices(); const en=vs.filter(v=>/^en/i.test(v.lang)); if(en.length) vs=en;}catch(e){}
@@ -855,12 +859,23 @@ function parentCard(){
     sel.onchange=()=>{P.voice=sel.value||null;save();speak('Mission control ready.');};
     [['Slow',.8],['Normal',.95],['Fast',1.1]].forEach(([n,r])=>{const b=document.createElement('button');b.className='btn '+(Math.abs((P.rate||.95)-r)<.01?'go':'alt');b.textContent=n;
       b.onclick=()=>{P.rate=r;save();parentCard();speak('Mission control ready.');};$('vRate').appendChild(b);});
-    $('vTest').onclick=()=>{audioInit();const w=P.sound;P.sound=true;speak('Hi Graesyn! Mission control is ready.');P.sound=w;}; })();
+    $('vTest').onclick=()=>{audioInit();const w=P.sound;P.sound=true;speak('Hi '+NM()+'! Mission control is ready.');P.sound=w;}; })();
   $('pM').onclick=()=>{P.bank=Math.max(0,fmt1(P.bank-5));save();renderSess();parentCard();};
   $('pP').onclick=()=>{P.bank=fmt1(P.bank+5);save();renderSess();parentCard();};
+  $('pN').onclick=()=>nameCard(false);
   $('pT').onclick=()=>{P.tgt=null;save();renderSess();parentCard();}; $('bClose').onclick=hideCard;
 }
 
+/* player name */
+function nameCard(first){
+  showCard('<h2>'+(first?'WELCOME, ASTRONAUT!':'CHANGE NAME')+'</h2><p style="font-size:20px">'+(first?'What is your name?':'Type the new name.')+'</p>'+
+    '<input class="pin" id="nmIn" style="width:min(320px,90%)" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Name" value="'+(first?'':NM())+'">'+
+    '<p class="small" id="nmErr">Letters only, up to 12. Your name is used for the missions, words and sentences.</p>'+
+    '<div class="row"><button class="btn go" id="nmOk">'+(first?'Blast off! 🚀':'Save name')+'</button>'+(first?'':'<button class="btn" id="bClose">Cancel</button>')+'</div>');
+  const go=()=>{ let v=$('nmIn').value.replace(/[^A-Za-z]/g,'').slice(0,12); if(v.length<2){$('nmErr').textContent='Use at least 2 letters (A to Z).';return;}
+    v=v.charAt(0).toUpperCase()+v.slice(1); P.name=v; save(); hideCard(); updateHeader(); loadItem(S.mode,S.item,S.level); say('Welcome aboard, Commander '+v+'!','good',true); };
+  $('nmOk').onclick=go; $('nmIn').addEventListener('keydown',e=>{if(e.key==='Enter')go();}); if($('bClose')) $('bClose').onclick=hideCard; setTimeout(()=>{try{$('nmIn').focus();}catch(e){}},150);
+}
 /* log matrix */
 function logCard(){
   const ss=P.sess.slice(-7), agg=emptyBy(); ss.forEach(x=>TYPES.forEach(([k])=>{const v=x.by[k]; if(!v)return; const a=agg[k]; a.a+=v.a;a.c+=v.c;a.r+=v.r;a.b+=v.b;a.s+=v.s;a.p=fmt1(a.p+v.p);}));
@@ -882,7 +897,7 @@ function logCard(){
 
 try{speechSynthesis.getVoices(); speechSynthesis.addEventListener&&speechSynthesis.addEventListener('voiceschanged',()=>{});}catch(e){}
 try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('sw.js'); let had=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!window.__ref&&!(window.__CS&&window.__CS.S.cur)){window.__ref=1;location.reload();} had=true; }); } }catch(e){}
-updateHeader(); setMode('letters'); renderSess(); stTick();
+updateHeader(); setMode('letters'); renderSess(); stTick(); if(!P.name) nameCard(true);
 requestAnimationFrame(loop); requestAnimationFrame(demoLoop);
 window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
 })();
