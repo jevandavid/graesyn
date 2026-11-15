@@ -849,8 +849,9 @@ function parentCard(){
     '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button></div>'+
     '<div class="row"><button class="btn go" id="bClose">Done</button></div>',true);
   [['rDur','dur'],['rRate','rate']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{P.cfg[k]=+b.dataset.v;save();renderSess();parentCard();}));
-  (function(){ let vs=[]; try{vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));}catch(e){}
+  (function(){ let vs=[]; try{vs=speechSynthesis.getVoices(); const en=vs.filter(v=>/^en/i.test(v.lang)); if(en.length) vs=en;}catch(e){}
     const sel=$('vSel'); sel.innerHTML='<option value="">Default voice</option>'+vs.map(v=>'<option value="'+v.voiceURI+'"'+(P.voice===v.voiceURI?' selected':'')+'>'+v.name+' ('+v.lang+')</option>').join('');
+    $('vSel').insertAdjacentHTML('afterend','<span class="small" id="vCnt">'+vs.length+' voices found on this device</span>'); if(!vs.length){ try{speechSynthesis.getVoices();}catch(e){} setTimeout(()=>{ if($('vSel')&&$('vSel').options.length<2&&speechSynthesis.getVoices().length) parentCard(); },800); }
     sel.onchange=()=>{P.voice=sel.value||null;save();speak('Mission control ready.');};
     [['Slow',.8],['Normal',.95],['Fast',1.1]].forEach(([n,r])=>{const b=document.createElement('button');b.className='btn '+(Math.abs((P.rate||.95)-r)<.01?'go':'alt');b.textContent=n;
       b.onclick=()=>{P.rate=r;save();parentCard();speak('Mission control ready.');};$('vRate').appendChild(b);});
@@ -879,7 +880,8 @@ function logCard(){
     if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>prompt('Copy:',t)); else prompt('Copy:',t); };
 }
 
-try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js'); let had=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!window.__ref&&!(window.__CS&&window.__CS.S.cur)){window.__ref=1;location.reload();} had=true; }); }catch(e){}
+try{speechSynthesis.getVoices(); speechSynthesis.addEventListener&&speechSynthesis.addEventListener('voiceschanged',()=>{});}catch(e){}
+try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('sw.js'); let had=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!window.__ref&&!(window.__CS&&window.__CS.S.cur)){window.__ref=1;location.reload();} had=true; }); } }catch(e){}
 updateHeader(); setMode('letters'); renderSess(); stTick();
 requestAnimationFrame(loop); requestAnimationFrame(demoLoop);
 window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
