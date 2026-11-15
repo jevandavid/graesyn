@@ -75,6 +75,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
 .modal.on{display:flex}
 .card{background:var(--panel);border:4px solid #000;box-shadow:inset 0 0 0 4px #2a2a66;padding:22px 26px;max-width:640px;width:100%;
   max-height:92vh;overflow:auto;text-align:center}
+.card.wide{max-width:940px}
 .card h2{font-family:var(--px);font-size:22px;margin:0 0 8px;color:var(--gold)}
 .card p{font-size:17px;margin:8px 0}
 .stars{font-size:46px;letter-spacing:6px;margin:6px 0}
@@ -82,7 +83,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
 .btn.go{background:var(--grass)}.btn.alt{background:#4a5bd6}.btn.danger{background:#b02a2a}
 .stat{display:grid;grid-template-columns:1fr auto;gap:6px 16px;text-align:left;font-size:17px;margin:10px 0}
 .stat b{font-family:var(--px);color:var(--gold);font-size:18px;text-align:right}
-#dcv{position:relative;width:560px;max-width:100%;height:340px;background:#fffdf4;border:6px solid var(--dirt);border-top:10px solid var(--grass)}
+#dcv{position:relative;width:min(860px,100%);height:340px;background:#fffdf4;border:6px solid var(--dirt);border-top:10px solid var(--grass)}
 .small{font-size:13px;color:var(--mute)}
 @media (max-aspect-ratio:1/1){
   main{flex-direction:column}
@@ -135,7 +136,7 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
 </div>
 
 <div class="modal" id="modal"><div class="card" id="card"></div></div>
-<div class="modal" id="demoModal"><div class="card">
+<div class="modal" id="demoModal"><div class="card wide">
   <h2>WATCH THE METEOR FALL</h2>
   <div id="dcv"><canvas id="dc"></canvas></div>
   <p id="demoLabel"></p>
@@ -296,7 +297,7 @@ const PRO={'Start a little to the RIGHT of your last letter.':'Start to the righ
 'So close! Finish all the way to the red block.':'Finish the stroke to the red mark.',
 'Follow the arrows from the star. Keep falling in the same direction.':'Follow the arrows, same direction.',
 'Keep going! Follow the road.':'Follow the path.',
-'Stay on the road! Slow down and trace it again.':'Off the path. Slow down and trace it again.','You skipped part of the path. Follow every curve.':'Part of the path was skipped. Follow every curve.',
+'You strayed off the path, so that stroke was erased. Lift up and try that stroke again.':'Off the path. Stroke erased. Lift and try that stroke again.','Stay on the road! Slow down and trace it again.':'Off the path. Slow down and trace it again.','You skipped part of the path. Follow every curve.':'Part of the path was skipped. Follow every curve.',
 'New line! Start back at the left edge, with a capital.':'New line. Back to the left edge, capital to start.',
 'Nice launch!':'Good.','Smooth!':'Clean.','Great stroke!':'Nice stroke.','Perfect landing!':'Solid.','Yes! Top to bottom!':'Top to bottom. Good.',
 'Too close! Leave room for one whole moon between words.':'Too close. Leave one moon-width between words.',
@@ -448,6 +449,15 @@ function feed(c,x,y){
   for(let i=c.idx;i<Math.min(N,c.idx+W+1);i++){const s=c.samples[i],dd=Math.hypot(x-s[0],y-s[1]); if(dd<bd){bd=dd;best=i;}}
   if(best>=0&&bd<tolNow()) c.idx=best;
   const cs=c.samples[c.idx]; c.off=Math.hypot(x-cs[0],y-cs[1])>tolNow()*0.9;
+  if(c.off) c.offTravel=(c.offTravel||0)+d;
+  if(S.level>=2&&c.offTravel>10) strayCancel(c);  // non-trace modes: erase as soon as he strays, redo until on track
+}
+function strayCancel(c){
+  if(S.cur!==c) return; S.cur=null;
+  S.run.fail++;P.stats.fail++;sfx.bad();
+  S.flashAt=performance.now(); S.flashFree=true;
+  say('You strayed off the path, so that stroke was erased. Lift up and try that stroke again.','warn');
+  save();
 }
 cv.addEventListener('pointermove',e=>{
   const c=S.cur; if(!c||e.pointerId!==c.pid) return; e.preventDefault();
@@ -646,33 +656,44 @@ function render(now){
 function loop(now){ try{render(now);}catch(e){console.error(e);} requestAnimationFrame(loop); }
 
 /* ============ watch demo ============ */
-const demo={on:false,t0:0,tpl:null};
+const demo={on:false,t0:0,items:[],seq:[],width:0,word:false};
 function openDemo(){
-  let ch=S.chars[S.ci]; if(!ch||ch.space) ch=S.chars.find(c=>!c.space); demo.tpl=ch.tpl;demo.t0=performance.now();demo.on=true;
+  let items;
+  if(S.mode==='words'){ // whole word, letter by letter, with the word gap for two-word items
+    const L=layoutText(S.text,12,52);
+    items=L.items.filter(it=>!it.space).map(it=>({tpl:TPL[it.ch],ch:it.ch,ox:it.ox})); demo.width=L.width; demo.word=true;
+  } else {
+    let ch=S.chars[S.ci]; if(!ch||ch.space) ch=S.chars.find(c=>!c.space);
+    items=[{tpl:ch.tpl,ch:ch.ch,ox:-ch.tpl.minX}]; demo.width=ch.tpl.maxX-ch.tpl.minX; demo.word=false;
+  }
+  demo.items=items; demo.seq=[];
+  items.forEach((it,ii)=>it.tpl.strokes.forEach((st,si)=>demo.seq.push({ii,si,st,dur:st.dot?500:Math.max(900,st.len*20)})));
+  demo.t0=performance.now();demo.on=true;
   $('demoModal').classList.add('on'); const r=$('dcv').getBoundingClientRect(); const dc=$('dc'); dc.width=Math.round(r.width*2);dc.height=Math.round(r.height*2); dc.style.width='100%';dc.style.height='100%';
 }
 function drawDemo(now){
-  const dc=$('dc'),ctx=dc.getContext('2d'),W=dc.width/2,H=dc.height/2,u=Math.min(H/200,1.8);
+  const dc=$('dc'),ctx=dc.getContext('2d'),W=dc.width/2,H=dc.height/2,u=Math.min(H/200,W/(demo.width+50),1.8);
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#fffdf4';ctx.fillRect(0,0,dc.width,dc.height);
-  ctx.setTransform(2*u,0,0,2*u,0,0); const wu=W/u,top=30,tpl=demo.tpl,ox=(wu-(tpl.maxX-tpl.minX))/2-tpl.minX;
+  ctx.setTransform(2*u,0,0,2*u,0,0); const wu=W/u,top=30,X0=(wu-demo.width)/2;
   drawLines(ctx,wu,top,u,false);
-  const dur=tpl.strokes.map(s=>s.dot?500:Math.max(1000,s.len*22)),total=dur.reduce((a,b)=>a+b+450,0)+1400;
+  const GAP=300,total=demo.seq.reduce((a,e)=>a+e.dur+GAP,0)+1600;
   let t=(now-demo.t0)%total,label='';
-  for(let i=0;i<tpl.strokes.length;i++){
-    const st=tpl.strokes[i],d=dur[i];
-    if(t>=d+450){ // finished stroke
+  for(const e of demo.seq){
+    const it=demo.items[e.ii],ox=X0+it.ox,st=e.st;
+    if(t>=e.dur+GAP){ // finished stroke stays on the page
       if(st.dot){ctx.fillStyle='#2d2a6e';ctx.beginPath();ctx.arc(ox+st.pts[0][0],top+st.pts[0][1],4.5,0,7);ctx.fill();}
       else{ctx.strokeStyle='#2d2a6e';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';pathRS(ctx,st.rs,ox,top,1);ctx.stroke();}
-      t-=d+450;continue;
+      t-=e.dur+GAP;continue;
     }
-    startDot(ctx,ox+st.rs[0][0],top+st.rs[0][1],i+1,0);
-    const f=Math.min(1,t/d),n=Math.max(1,Math.floor(f*(st.rs.length-1))+1);
+    startDot(ctx,ox+st.rs[0][0],top+st.rs[0][1],e.si+1,0);
+    const f=Math.min(1,t/e.dur),n=Math.max(1,Math.floor(f*(st.rs.length-1))+1);
     if(!st.dot){ctx.strokeStyle='#00b8d9';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';pathRS(ctx,st.rs,ox,top,1,n);ctx.stroke();}
     const h=st.rs[n-1],hx=ox+h[0],hy=top+h[1];
     ctx.fillStyle='rgba(255,216,74,.45)';ctx.beginPath();ctx.arc(hx,hy,9,0,7);ctx.fill();ctx.fillStyle='#ffb300';ctx.beginPath();ctx.arc(hx,hy,5,0,7);ctx.fill();
-    label='Stroke '+(i+1)+' of '+tpl.strokes.length+(st.dot?': tap the dot':': start at the star, fall down'); break;
+    label=(demo.word?'Letter '+(e.ii+1)+' of '+demo.items.length+' (“'+it.ch+'”), ':'')+'stroke '+(e.si+1)+' of '+it.tpl.strokes.length+(st.dot?': tap the dot':': start at the star, fall down');
+    label=label.charAt(0).toUpperCase()+label.slice(1); break;
   }
-  $('demoLabel').textContent=label||('Now you try! “'+tpl.ch+'”');
+  $('demoLabel').textContent=label||(demo.word?'Now you write “'+S.text+'”!':'Now you try! “'+demo.items[0].ch+'”');
 }
 function demoLoop(now){ if(demo.on){try{drawDemo(now);}catch(e){}} requestAnimationFrame(demoLoop); }
 
