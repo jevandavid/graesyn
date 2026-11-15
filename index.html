@@ -281,6 +281,8 @@ const INV=[[50,'🌙'],[100,'🪐'],[200,'☄️'],[300,'🚀'],[500,'🌌'],[80
 const KEY='cosmicScribe.v1';
 let P={xp:0,sound:true,pro:false,strict:1,day:null,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};
 try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); P=Object.assign(P,o); P.stats=Object.assign({top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0},o.stats||{});}}catch(e){}
+// Levels earned before mastery-gating are re-locked once (progress/XP kept).
+try{ if(P.gate!==2){ for(const k in P.done){ if(P.done[k]) P.done[k].lv=0; } P.gate=2; localStorage.setItem(KEY,JSON.stringify(P)); } }catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
 
 /* ============ audio + voice ============ */
