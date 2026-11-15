@@ -879,7 +879,7 @@ function logCard(){
     if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>prompt('Copy:',t)); else prompt('Copy:',t); };
 }
 
-try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js'); }catch(e){}
+try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js'); let had=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!window.__ref&&!(window.__CS&&window.__CS.S.cur)){window.__ref=1;location.reload();} had=true; }); }catch(e){}
 updateHeader(); setMode('letters'); renderSess(); stTick();
 requestAnimationFrame(loop); requestAnimationFrame(demoLoop);
 window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
