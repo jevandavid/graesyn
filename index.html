@@ -57,6 +57,7 @@ main{flex:1;min-height:0;display:flex;gap:10px}
 #bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
 #levels{display:flex;gap:6px;flex-wrap:wrap}
 .lv{background:#3b3f66;font-size:12px;padding:8px 12px}
+.lv.lock{opacity:.5}
 .lv.on{background:#ffb300;color:#2a1a00;box-shadow:inset -4px -4px 0 rgba(0,0,0,.3),inset 4px 4px 0 rgba(255,255,255,.5)}
 .lv.next::before{content:'▶ ';color:var(--gold)}
 #acts{display:flex;gap:6px}
@@ -146,7 +147,10 @@ canvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;d
 'use strict';
 /* ============ constants (all geometry in "units": 100 units = top line to baseline) ============ */
 const M=24, TOP=80, BASE=180, DESC=230, STEP=3, ROW_H=165;
-const TOL={1:20,2:22,3:25,4:28};
+const TOL={1:14,2:16,3:19,4:21};                  // start + progress corridor (units)
+const ACC={1:[5.5,14,15],2:[6.5,16,17],3:[7.5,18,19],4:[8.5,20,21]}; // avg drift, max drift, max skipped gap
+const SF=[1.35,1,0.8];                             // strictness: gentle, standard, strict
+const tolNow=()=>TOL[S.level]*SF[P.strict];
 const LVNAME={1:'Trace',2:'Star dots',3:'Moon helper',4:'Solo'};
 const LVHINT={
   1:'Follow the glowing road. Launch from the green star, land on the red block.',
@@ -274,7 +278,7 @@ const INV=[[50,'🌙'],[100,'🪐'],[200,'☄️'],[300,'🚀'],[500,'🌌'],[80
 
 /* ============ saved progress (this browser only) ============ */
 const KEY='cosmicScribe.v1';
-let P={xp:0,sound:true,pro:false,day:null,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};
+let P={xp:0,sound:true,pro:false,strict:1,day:null,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};
 try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); P=Object.assign(P,o); P.stats=Object.assign({top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0},o.stats||{});}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
 
@@ -292,6 +296,7 @@ const PRO={'Start a little to the RIGHT of your last letter.':'Start to the righ
 'So close! Finish all the way to the red block.':'Finish the stroke to the red mark.',
 'Follow the arrows from the star. Keep falling in the same direction.':'Follow the arrows, same direction.',
 'Keep going! Follow the road.':'Follow the path.',
+'Stay on the road! Slow down and trace it again.':'Off the path. Slow down and trace it again.','You skipped part of the path. Follow every curve.':'Part of the path was skipped. Follow every curve.',
 'New line! Start back at the left edge, with a capital.':'New line. Back to the left edge, capital to start.',
 'Nice launch!':'Good.','Smooth!':'Clean.','Great stroke!':'Nice stroke.','Perfect landing!':'Solid.','Yes! Top to bottom!':'Top to bottom. Good.',
 'Too close! Leave room for one whole moon between words.':'Too close. Leave one moon-width between words.',
@@ -388,8 +393,9 @@ function buildPicker(){
 }
 function buildLevels(){
   const el=$('levels'); el.innerHTML=''; const d=P.done[S.mode+':'+S.item]; const nxt=Math.min(4,(d?d.lv:0)+1);
-  [1,2,3,4].forEach(n=>{const b=document.createElement('button');b.className='lv'+(n===S.level?' on':'')+(n===nxt&&n!==S.level?' next':'');
-    b.textContent=n+' '+LVNAME[n]; b.title=LVHINT[n]; b.onclick=()=>{audioInit();loadItem(S.mode,S.item,n);say(LVHINT[n],'info');}; el.appendChild(b);});
+  [1,2,3,4].forEach(n=>{const lock=n>nxt;const b=document.createElement('button');b.className='lv'+(n===S.level?' on':'')+(n===nxt&&n!==S.level?' next':'')+(lock?' lock':'');
+    b.textContent=(lock?'🔒 ':'')+n+' '+LVNAME[n]; b.title=LVHINT[n];
+    b.onclick=()=>{audioInit(); if(lock){sfx.bad();say('Level '+n+' is locked. Master Level '+(n-1)+' first: finish it with 3 stars.','warn');return;} loadItem(S.mode,S.item,n);say(LVHINT[n],'info');}; el.appendChild(b);});
 }
 function updateHeader(){
   let rn=RANKS[0],nx=null; RANKS.forEach((r,i)=>{if(P.xp>=r[0]){rn=r;nx=RANKS[i+1]||null;}});
@@ -411,7 +417,7 @@ cv.addEventListener('pointerdown',e=>{
   e.preventDefault(); audioInit();
   if(S.locked||S.cur) return;
   const ch=S.chars[S.ci]; if(!ch) return;
-  const st=ch.tpl.strokes[S.si],tol=TOL[S.level],[x,y]=toU(e);
+  const st=ch.tpl.strokes[S.si],tol=tolNow(),[x,y]=toU(e);
   const free=S.level>=3&&ch.ox==null; let ox=ch.ox;
   const sx=st.rs[0][0],sy=ch.top+st.rs[0][1];
   if(ox==null){
@@ -440,14 +446,21 @@ function feed(c,x,y){
   c.ink.push([x,y]); c.travel+=d;
   const N=c.samples.length,W=Math.ceil(60/STEP); let best=-1,bd=1e9;
   for(let i=c.idx;i<Math.min(N,c.idx+W+1);i++){const s=c.samples[i],dd=Math.hypot(x-s[0],y-s[1]); if(dd<bd){bd=dd;best=i;}}
-  if(best>=0&&bd<TOL[S.level]) c.idx=best;
-  const cs=c.samples[c.idx]; c.off=Math.hypot(x-cs[0],y-cs[1])>TOL[S.level]*1.9;
+  if(best>=0&&bd<tolNow()) c.idx=best;
+  const cs=c.samples[c.idx]; c.off=Math.hypot(x-cs[0],y-cs[1])>tolNow()*0.9;
 }
 cv.addEventListener('pointermove',e=>{
   const c=S.cur; if(!c||e.pointerId!==c.pid) return; e.preventDefault();
   const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
   (evs.length?evs:[e]).forEach(ev=>{const [x,y]=toU(ev);feed(c,x,y);});
 });
+function segDist(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));}
+function polyDist(px,py,pts){let b=1e9;if(pts.length===1)return Math.hypot(px-pts[0][0],py-pts[0][1]);for(let i=1;i<pts.length;i++){const d=segDist(px,py,pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);if(d<b)b=d;}return b;}
+function accuracy(c){ // how closely the ink hugged the path (drift) and whether any part of the path was skipped
+  let sum=0,mx=0; c.ink.forEach(q=>{const d=polyDist(q[0],q[1],c.samples);sum+=d;if(d>mx)mx=d;});
+  let skip=0; c.samples.forEach(q=>{const d=polyDist(q[0],q[1],c.ink);if(d>skip)skip=d;});
+  return {avg:sum/c.ink.length,max:mx,skip};
+}
 function endStroke(e){
   const c=S.cur; if(!c||(e&&e.pointerId!==c.pid)) return; S.cur=null;
   const N=c.samples.length;
@@ -456,6 +469,14 @@ function endStroke(e){
     S.run.fail++;P.stats.fail++;sfx.bad();
     say(c.idx>N*0.5?'So close! Finish all the way to the red block.':(c.travel>40?'Follow the arrows from the star. Keep falling in the same direction.':'Keep going! Follow the road.'),'warn');
     save();return;
+  }
+  if(!c.st.dot){
+    const a=accuracy(c),lim=ACC[S.level].map(v=>v*SF[P.strict]);
+    if(a.avg>lim[0]||a.max>lim[1]||a.skip>lim[2]){
+      S.run.fail++;P.stats.fail++;sfx.bad();
+      say(a.skip>lim[2]?'You skipped part of the path. Follow every curve.':'Stay on the road! Slow down and trace it again.','warn');
+      save();return;
+    }
   }
   completeStroke(c);
 }
@@ -485,17 +506,18 @@ function evalGap(ch){
 
 /* ============ finish + cards ============ */
 function finish(){
-  S.locked=true; const issues=S.run.bottom+S.run.gapBad+Math.floor(S.run.fail/3);
+  S.locked=true; const issues=S.run.bottom+S.run.gapBad+Math.floor((S.run.fail+S.run.miss)/2);
   const stars=issues===0?3:issues<=2?2:1; const key=S.mode+':'+S.item; const d=P.done[key]||{lv:0,stars:0};
-  const levelUp=stars>=2&&S.level>d.lv; if(stars>=2&&S.level>d.lv) d.lv=S.level; d.stars=Math.max(d.stars,stars); P.done[key]=d;
+  const mastered=stars===3; if(mastered&&S.level>d.lv) d.lv=S.level; d.stars=Math.max(d.stars,stars); P.done[key]=d;
   const gain=stars*10+(S.level-1)*5+(S.mode==='paras'?10:0); P.xp+=gain; P.stats.runs++; save(); updateHeader(); buildPicker(); buildLevels();
   sfx.win(); speak(stars===3?'Mission complete! Perfect!':'Mission complete!');
   const lines=[]; if(S.run.bottom) lines.push('Bottom starts caught: '+S.run.bottom+'. Next time launch from the top!');
   if(S.run.gapBad) lines.push('Spacing to fix: '+S.run.gapBad+'. Remember, one moon between words.');
-  if(!lines.length) lines.push('Every stroke started at the top and the spacing was spot on!');
+  if(!lines.length) lines.push('Every stroke started at the top and stayed on the road!');
   const td=new Date().toLocaleDateString('en-CA'); if(!P.day||P.day.d!==td) P.day={d:td,n:0}; P.day.n++; save(); updateHeader();
   if(P.day.n===3) lines.push('Daily goal complete! That is a full mission. Stop here or keep exploring.');
-  const canUp=stars>=2&&S.level<4;
+  const canUp=mastered&&S.level<4;
+  lines.push(mastered?(S.level<4?'🔓 MASTERED! Level '+(S.level+1)+' unlocked.':'🏆 MASTERED! You cleared every level.'):'Not mastered yet. To unlock Level '+Math.min(4,S.level+1)+', finish this level with 3 stars: top starts, clean spacing, and at most one redo.');
   showCard('<h2>MISSION COMPLETE</h2><div class="stars">'+'⭐'.repeat(stars)+'<span style="opacity:.25">'+'⭐'.repeat(3-stars)+'</span></div>'+
     '<p>+'+gain+' XP</p><p>'+lines.join('<br>')+'</p>'+
     '<div class="row">'+(canUp?'<button class="btn go" id="bUp">Level '+(S.level+1)+' ▶</button>':'<button class="btn go" id="bAgain">Try again</button>')+
@@ -517,7 +539,10 @@ function report(){
     '<span>Strokes not finished</span><b>'+s.fail+'</b><span>Spacing on target</span><b>'+gp+'%</b>'+
     '<span>Missions finished</span><b>'+s.runs+'</b><span>Items cleared / mastered (level 4)</span><b>'+started+' / '+mastered+'</b></div>'+
     '<p class="small">Saved on this device only. “Top-start” is the key number: the goal is to see it climb while bottom-up starts shrink.</p>'+
+    '<p class="small" style="margin-top:14px">Parent setting: how closely strokes must follow the trace</p><div class="row" id="strictRow" style="margin-top:6px"></div>'+
     '<div class="row"><button class="btn danger" id="bReset">Reset progress</button><button class="btn go" id="bClose">Close</button></div>');
+  ['Gentle','Standard','Strict'].forEach((n,i)=>{const b=document.createElement('button');b.className='btn '+(P.strict===i?'go':'alt');b.textContent=n;
+    b.onclick=()=>{P.strict=i;save();[...$('strictRow').children].forEach((x,j)=>x.className='btn '+(j===i?'go':'alt'));};$('strictRow').appendChild(b);});
   let armed=false; $('bReset').onclick=()=>{ if(!armed){armed=true;$('bReset').textContent='Tap again to erase';return;}
     P={xp:0,sound:P.sound,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};save();updateHeader();hideCard();setMode(S.mode);};
   $('bClose').onclick=hideCard;
