@@ -289,6 +289,19 @@ const WORDS=['{N}','star','moon','mars','sun','comet','orbit','rocket','planet',
 const PARAS=['I am {N}.\nI am a pilot.\nI fly to Mars.','I see a star.\nIt is big.\nIt is bright.','Mars is red.\nIt is far.\nI want to go.','I see the moon.\nI dig a cave.\nI find gold.','A rocket flies.\nIt zips past.\nIt lands soon.','I mine a gem.\nI build a base.\nThe sun is up.'];
 const DIGITS='0123456789'.split('');
 const NUMS=['5 4 3 2 1','3 2 1 Go!','1 2 3 4 5','10 20 30','Earth has 1 moon.','Mars has 2 moons.','1 + 1 = 2','2 + 3 = 5','5 + 5 = 10'];
+const PARAS2=['I am {N}.\nI fly to Mars.','I see a star.\nIt is big.','Mars is red.\nIt is far.','I dig a cave.\nI find gold.','The sun is hot.\nI stay cool.','A rocket flies.\nIt zips by.','The moon is up.\nI see it.','We dig down.\nWe find gems.','I fly a ship.\nI land on Mars.','{N} can fly.\nIt is fun.','Stars are big.\nThey shine.','I build a base.\nIt is safe.'];
+const ALLP=PARAS2.concat(PARAS);
+/* iReady high-frequency ("Super") words: Kindergarten, Grade 1, Grade 2 */
+const SUPER=[
+ ['the','that','to','in','is','it','was','you','on','he','be','for','as','at','of','his','with','they','had','and','are','not','have','this','but','by','or','from','one','she','when','were','all','an','what','can','their','we','there','about'],
+ ['up','said','if','out','so','would','some','them','will','people','which','other','into','your','do','more','these','no','then','many','time','who','like','been','has','could','him','how','its','two','than','may','made','over','most','only','see','very','new','first','make','also','way','my','down','called','now','each','did','water','just','after','get','where','back','through','such','little','much','must','know','because','our','even'],
+ ['things','long','too','before','me','years','good','look','go','work','used','day','great','another','any','place','right','house','come','around','small','should','off','different','find','those','found','think','three','went','here','world','away','part','help','old','every','might','own']];
+const SW_N=8;
+function swPool(){ const g=P.cfg.grade==null?2:P.cfg.grade; let a=[]; for(let i=0;i<=g;i++) a=a.concat(SUPER[i]); return a; }
+function drawSuper(){ const pool=swPool(); P.sw=P.sw||{bag:[],cur:[]}; const sw=P.sw; sw.bag=sw.bag.filter(w=>pool.includes(w)); const cur=[];
+  while(cur.length<Math.min(SW_N,pool.length)){ if(!sw.bag.length){ const b=pool.filter(w=>!cur.includes(w)); for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} sw.bag=b; } const w=sw.bag.pop(); if(!cur.includes(w)) cur.push(w); }
+  sw.cur=cur; save(); }
+function superSet(){ const pool=swPool(); if(!P.sw||!P.sw.cur||!P.sw.cur.length||P.sw.cur.some(w=>!pool.includes(w))) drawSuper(); return P.sw.cur; }
 const SENTS=['I am {N}.','{N} can fly.','I see a star.','Mars is red.','The sun is hot.','We dig for gold.','Space is big.'];
 const RANKS=[[0,'CADET'],[100,'PILOT'],[300,'NAVIGATOR'],[600,'CAPTAIN'],[1000,'COMMANDER']];
 const INV=[[50,'🌙'],[100,'🪐'],[200,'☄️'],[300,'🚀'],[500,'🌌'],[800,'🕳️'],[1000,'💎']];
@@ -299,13 +312,18 @@ let P={xp:0,sound:true,pro:false,strict:1,day:null,done:{},last:{},stats:{top:0,
 try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); P=Object.assign(P,o); P.stats=Object.assign({top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0},o.stats||{});}}catch(e){}
 // Levels earned before mastery-gating are re-locked once (progress/XP kept).
 try{ if(P.gate!==2){ for(const k in P.done){ if(P.done[k]) P.done[k].lv=0; } P.gate=2; localStorage.setItem(KEY,JSON.stringify(P)); } }catch(e){}
-function ensureP(){ P.bank=P.bank||0; P.sess=P.sess||[]; P.cfg=Object.assign({dur:15,rate:2},P.cfg||{}); if(P.tgt===undefined)P.tgt=null; P.ls=P.ls||{}; if(P.live===undefined)P.live=null; if(P.st===undefined)P.st=null; }
+function ensureP(){ P.v=3; if(!P.life){ const ss=P.sess||[]; const f=ss.reduce((a,x)=>a+(x.pts||0),0), b=ss.reduce((a,x)=>a+(x.banked||0),0); P.life={fuel:Math.round(f*10)/10,banked:Math.round(b*10)/10,spent:Math.max(0,Math.round((b-(P.bank||0))*10)/10)}; } P.bank=P.bank||0; P.sess=P.sess||[]; P.cfg=Object.assign({dur:15,rate:2},P.cfg||{}); if(P.tgt===undefined)P.tgt=null; P.ls=P.ls||{}; if(P.live===undefined)P.live=null; if(P.st===undefined)P.st=null; }
 if(!P.nm2){ const fix=o=>{ if(!o) return; Object.keys(o).forEach(k=>{ if(k.includes('Graesyn')){ o[k.replace('Graesyn','{N}')]=o[k]; delete o[k]; } }); };
   fix(P.done); if(P.last) Object.keys(P.last).forEach(m=>{ if(typeof P.last[m]==='string') P.last[m]=P.last[m].replace('Graesyn','{N}'); }); if(P.live){fix(P.live.cl);fix(P.live.seen);} P.nm2=1; }
 ensureP();
 function NM(){ return P.name||'Astronaut'; }
 function R(t){ return String(t).replace(/\{N\}/g,NM()); }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
+let mirT=0;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){} try{clearTimeout(mirT);mirT=setTimeout(()=>{idbSet('P',JSON.stringify(P)).catch(()=>{});},1500);}catch(e){}}
+function idb(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open('cosmicScribe',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);}catch(e){rej(e);} }); }
+function idbSet(k,v){ return idb().then(db=>new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);})); }
+function idbGet(k){ return idb().then(db=>new Promise((res,rej)=>{const t=db.transaction('kv','readonly'),q=t.objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);})); }
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 
 /* ============ audio + voice ============ */
 let ac=null;
@@ -385,7 +403,7 @@ function intro(){
   say(m,'info');
 }
 function setMode(m){
-  const def_={letters:'a',words:'{N}',sentences:'I am {N}.',nums:'1',paras:PARAS[0]};
+  const def_={letters:'a',words:'{N}',sentences:'I am {N}.',nums:'1',paras:PARAS2[0]};
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   loadItem(m,P.last[m]||def_[m]);
 }
@@ -413,8 +431,9 @@ function buildPicker(){
       const h=document.createElement('h4');h.textContent=t;el.appendChild(h);
       const g=document.createElement('div');g.className='grid';arr.forEach(l=>g.appendChild(mk(l,l)));el.appendChild(g);});
   } else {
-    const h=document.createElement('h4');h.textContent=S.mode==='words'?'word missions':S.mode==='sentences'?'sentence missions':'story missions';el.appendChild(h);
-    const w=document.createElement('div');w.className='list-wrap';(S.mode==='words'?WORDS:S.mode==='sentences'?SENTS:PARAS).forEach(x=>w.appendChild(mk(x.replace(/\n/g,' '),x,'list')));el.appendChild(w);
+    const secs=S.mode==='words'?[['⭐ super words (new set each mission)',superSet()],['word missions',WORDS]]:S.mode==='sentences'?[['sentence missions',SENTS]]:[['2-line stories',PARAS2],['3-line stories',PARAS]];
+    secs.forEach(([t,arr])=>{ const h=document.createElement('h4');h.textContent=t;el.appendChild(h);
+      const w=document.createElement('div');w.className='list-wrap';arr.forEach(x=>w.appendChild(mk(x.replace(/\n/g,' '),x,'list')));el.appendChild(w); });
   }
 }
 function buildLevels(){
@@ -562,7 +581,7 @@ function finish(){
   $('bNext').onclick=()=>{hideCard();SSn()?sessionNext():nextItem();}; $('bClose').onclick=hideCard;
 }
 function nextItem(){
-  const list=S.mode==='nums'?(/^\d$/.test(S.item)?DIGITS:NUMS):S.mode==='letters'?(LOWER.includes(S.item)?LOWER:UPPER):S.mode==='words'?WORDS:S.mode==='sentences'?SENTS:PARAS;
+  const list=S.mode==='nums'?(/^\d$/.test(S.item)?DIGITS:NUMS):S.mode==='letters'?(LOWER.includes(S.item)?LOWER:UPPER):S.mode==='words'?superSet().concat(WORDS.filter(w=>!superSet().includes(w))):S.mode==='sentences'?SENTS:ALLP;
   const i=list.indexOf(S.item); loadItem(S.mode,list[(i+1)%list.length]);
 }
 function showCard(h,wide){$('card').className='card'+(wide?' wide':'');$('card').innerHTML=h;$('modal').classList.add('on');}
@@ -579,8 +598,11 @@ function report(){
     '<div class="row"><button class="btn alt" id="bLog2">📊 Session log</button><button class="btn danger" id="bReset">Reset progress</button><button class="btn go" id="bClose">Close</button></div>');
   ['Gentle','Standard','Strict'].forEach((n,i)=>{const b=document.createElement('button');b.className='btn '+(P.strict===i?'go':'alt');b.textContent=n;
     b.onclick=()=>{P.strict=i;save();[...$('strictRow').children].forEach((x,j)=>x.className='btn '+(j===i?'go':'alt'));};$('strictRow').appendChild(b);});
-  let armed=false; $('bReset').onclick=()=>{ if(!armed){armed=true;$('bReset').textContent='Tap again to erase';return;}
-    P={xp:0,sound:P.sound,done:{},last:{},cfg:P.cfg,stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}};ensureP();save();renderSess();updateHeader();hideCard();setMode(S.mode);};
+  $('bReset').onclick=()=>gate(()=>{ idbSet('pre-reset',JSON.stringify(P)).catch(()=>{});
+    showCard('<h2>ERASE EVERYTHING?</h2><p>This erases ALL progress, points and the bank. Use Back up first if you may want it back.</p><div class="row"><button class="btn danger" id="rsYes">Yes, erase all</button><button class="btn go" id="bClose">Cancel</button></div>');
+    $('bClose').onclick=hideCard;
+    $('rsYes').onclick=()=>{ const k={name:P.name,cfg:P.cfg,voice:P.voice,rate:P.rate,sound:P.sound,gate:2,nm2:1};
+      P=Object.assign({xp:0,done:{},last:{},stats:{top:0,bottom:0,miss:0,fail:0,gapOk:0,gapBad:0,runs:0}},k);ensureP();save();renderSess();updateHeader();hideCard();setMode(S.mode); }; });
   $('bLog2').onclick=logCard; $('bClose').onclick=hideCard;
 }
 
@@ -747,13 +769,13 @@ window.addEventListener('resize',()=>fit());
 /* ============ timed sessions, points, bank, screen time ============ */
 const TYPES=[['letters','Letters'],['numbers','Numbers'],['words','Words'],['sentences','Sentences'],['stories','Stories']];
 const tkey=()=>S.mode==='letters'?'letters':S.mode==='nums'?'numbers':S.mode==='words'?'words':S.mode==='sentences'?'sentences':'stories';
-const LVM=[0,.5,.75,1,1.25], PAT=['letters','words','letters','numbers','sentences','letters','words','numbers','letters','stories'];
+const LVM=[0,.5,.75,1,1.25], PAT=['letters','words','letters','numbers','sentences','words','letters','words','stories','letters'];
 const fmt1=x=>Math.round(x*10)/10;
 const SSn=()=>P.live&&P.live.on?P.live:null;
 const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return Math.floor(ms/60)+':'+String(ms%60).padStart(2,'0');};
 const emptyBy=()=>{const o={};TYPES.forEach(t=>o[t[0]]={a:0,c:0,r:0,b:0,s:0,p:0});return o;};
 function baseP(){ const n=S.text.replace(/\s/g,'').length;
-  if(isDrill()) return 1; if(S.mode==='words') return 3+Math.floor(Math.max(0,n-4)/4); if(S.mode==='nums') return 3; if(S.mode==='sentences') return 8; return 20; }
+  if(isDrill()) return 1; if(S.mode==='words') return 3+Math.floor(Math.max(0,n-4)/4); if(S.mode==='nums') return 3; if(S.mode==='sentences') return 8; return S.text.split('\n').length<=2?14:20; }
 let lastTick=Date.now(), lastAct=0, tickN=0;
 cv.addEventListener('pointerdown',()=>{lastAct=Date.now();});
 cv.addEventListener('pointermove',()=>{lastAct=Date.now();});
@@ -768,7 +790,7 @@ function scoreRun(stars){
     if(n>=2) res.note='You already scored this one twice. Pick a new one for points.';
     else{ let pts=baseP()*LVM[S.level];
       if(isDrill()&&s.tgt){ const room=s.tgt*0.5-s.dp; if(room<=0){pts=0;res.note='Letter and number points are maxed for this session. Try words and sentences!';} else pts=Math.min(pts,room); }
-      pts=fmt1(pts); if(isDrill()) s.dp=fmt1(s.dp+pts); s.pts=fmt1(s.pts+pts); b.p=fmt1(b.p+pts); res.pts=pts; } }
+      pts=fmt1(pts); P.life.fuel=fmt1(P.life.fuel+pts); if(isDrill()) s.dp=fmt1(s.dp+pts); s.pts=fmt1(s.pts+pts); b.p=fmt1(b.p+pts); res.pts=pts; } }
   if(s.tgt&&s.pts>=s.tgt&&!s.hit){ s.hit=true; res.note=(res.note?res.note+' ':'')+'🎯 TARGET HIT! Keep going. Your points bank when the session ends.'; sfx.win(); }
   save(); renderSess(); return res;
 }
@@ -777,20 +799,20 @@ function sessionNext(){
   const s=SSn(); if(!s) return nextItem();
   const t=PAT[s.n%PAT.length]; s.n++; s.seen=s.seen||{};
   const mode=t==='letters'?'letters':t==='numbers'?'nums':t==='words'?'words':t==='sentences'?'sentences':'paras';
-  const list=t==='letters'?LOWER.concat(UPPER):t==='numbers'?DIGITS.concat(NUMS):t==='words'?WORDS:t==='sentences'?SENTS:PARAS;
+  const list=t==='letters'?LOWER.concat(UPPER):t==='numbers'?DIGITS.concat(NUMS):t==='words'?(()=>{const sp=superSet().concat(['{N}']); return sp.filter(w=>w!=='{N}').every(w=>(s.cl['words:'+w]||0)>=2)?WORDS:sp;})():t==='sentences'?SENTS:ALLP;
   let best=list[0],bs=1e9;
   list.forEach((it,i)=>{const k=mode+':'+it,d=P.done[k],sc=(s.cl[k]||0)*1000+(d?d.lv:0)*100+(s.seen[k]||0)*10+i/1000; if(sc<bs){bs=sc;best=it;}});
   s.seen[mode+':'+best]=(s.seen[mode+':'+best]||0)+1; save(); gotoItem(mode,best);
 }
 function startSession(){
-  audioInit(); P.live={on:true,t:Date.now(),act:0,pts:0,dp:0,tgt:P.tgt,base:P.tgt==null,by:emptyBy(),cl:{},seen:{},n:0,dur:P.cfg.dur*60000,hit:false};
+  audioInit(); drawSuper(); P.live={on:true,t:Date.now(),act:0,pts:0,dp:0,tgt:P.tgt,base:P.tgt==null,by:emptyBy(),cl:{},seen:{},n:0,dur:P.cfg.dur*60000,hit:false};
   lastAct=Date.now(); lastTick=Date.now(); save(); sessionNext();
   say(P.live.base?'Baseline mission! No pressure. Just show what you can do.':'Mission Control is live! Fill the fuel gauge to the target.','info');
   renderSess();
 }
 function endSession(manual){
   const s=SSn(); if(!s) return; s.on=false;
-  const base=s.base, hit=base||(s.tgt!=null&&s.pts>=s.tgt), banked=hit?s.pts:0; P.bank=fmt1(P.bank+banked);
+  const base=s.base, hit=base||(s.tgt!=null&&s.pts>=s.tgt), banked=hit?s.pts:0; P.bank=fmt1(P.bank+banked); P.life.banked=fmt1(P.life.banked+banked);
   P.sess.push({ts:s.t,d:new Date(s.t).toLocaleDateString('en-CA'),min:Math.round(s.act/6000)/10,pts:s.pts,tgt:s.tgt,base,hit:!!hit,banked,by:s.by}); if(P.sess.length>90)P.sess.shift();
   const nextOld=P.tgt;
   if(!(base&&s.act<300000)){ const last=P.sess.slice(-3).map(x=>x.pts).sort((a,b)=>a-b),med=last[Math.floor(last.length/2)]; let nt=Math.max(5,Math.round(med*.85)); if(!base&&hit) nt=Math.max(nt,Math.ceil(s.tgt*1.05)); P.tgt=nt; }
@@ -809,7 +831,7 @@ function renderSess(){
   const el=$('sess'),s=SSn(); let h='';
   if(!s) h='<button class="btn go" id="sStart">▶ Start Mission Control · '+P.cfg.dur+' min</button><span class="sm">'+(P.tgt==null?'First run = unpressured baseline':'Target: '+P.tgt+' pts')+'</span>';
   else h='<span class="tm" id="sTm">⏱ 0:00</span><div class="fuel" id="sFuel"><i id="sFi"></i>'+(s.tgt?'<b class="mk"></b>':'')+'</div><span class="sm" id="sPts"></span><button class="btn" id="sEnd">End</button>';
-  h+='<span class="sp"></span><button class="btn" id="sBank">🏦 '+fmt1(P.bank)+'</button><button class="btn alt" id="sScreen">📺 Screen time</button><button class="btn alt" id="sLog">📊</button>';
+  h+='<span class="sp"></span><button class="btn" id="sBank">🏦 '+fmt1(P.bank)+'</button><button class="btn alt" id="sScreen">📺 Screen time</button><button class="btn alt" id="sLog">'+(bkDue()?'📊 ⚠':'📊')+'</button>';
   el.innerHTML=h;
   if($('sStart')) $('sStart').onclick=startSession;
   if($('sEnd')) $('sEnd').onclick=()=>{ if($('sEnd').dataset.arm){endSession(true);} else {$('sEnd').dataset.arm=1;$('sEnd').textContent='Sure?';setTimeout(()=>{if($('sEnd')){delete $('sEnd').dataset.arm;$('sEnd').textContent='End';}},3000);} };
@@ -833,7 +855,7 @@ function screenCard(){
   const r=P.cfg.rate; let h='<h2>📺 SCREEN TIME</h2><p style="font-size:20px">🏦 Bank: <b>'+fmt1(P.bank)+' pts</b></p><p class="small">'+r+' pts = 1 minute. Points are deducted when you start.</p><div class="row">';
   [5,10,15,20].forEach(m=>{const c=m*r,ok=P.bank>=c; h+='<button class="btn '+(ok?'go':'')+'" data-m="'+m+'"'+(ok?'':' disabled style="opacity:.4"')+'>'+m+' min<br>'+c+' pts</button>';});
   h+='</div><div class="row"><button class="btn" id="bClose">Close</button></div>'; showCard(h);
-  document.querySelectorAll('#card [data-m]').forEach(b=>b.onclick=()=>{const m=+b.dataset.m,c=m*r; if(P.bank<c) return; P.bank=fmt1(P.bank-c); P.st={end:Date.now()+m*60000,rate:r}; save(); hideCard(); renderSess(); stTick();});
+  document.querySelectorAll('#card [data-m]').forEach(b=>b.onclick=()=>{const m=+b.dataset.m,c=m*r; if(P.bank<c) return; P.bank=fmt1(P.bank-c); P.life.spent=fmt1(P.life.spent+c); P.st={end:Date.now()+m*60000,rate:r}; save(); hideCard(); renderSess(); stTick();});
   $('bClose').onclick=hideCard;
 }
 function stTick(){
@@ -842,7 +864,7 @@ function stTick(){
   if(left>0){ $('stT').textContent=mmss(left); $('stMsg').textContent='Enjoy! Your points paid for this.'; $('stDone').textContent='Done early (refund whole unused minutes)'; }
   else { if(!P.st.over){P.st.over=true;sfx.win();save();} $('stT').textContent='0:00'; $('stMsg').textContent="Time's up! Back to the mission."; $('stDone').textContent='Back to Mission Control'; }
 }
-$('stDone').onclick=()=>{ if(P.st){ const left=P.st.end-Date.now(); if(left>60000) P.bank=fmt1(P.bank+Math.floor(left/60000)*P.st.rate); P.st=null; save(); $('stOv').classList.remove('on'); renderSess(); } };
+$('stDone').onclick=()=>{ if(P.st){ const left=P.st.end-Date.now(); if(left>60000){ const rf=Math.floor(left/60000)*P.st.rate; P.bank=fmt1(P.bank+rf); P.life.spent=fmt1(Math.max(0,P.life.spent-rf)); } P.st=null; save(); $('stOv').classList.remove('on'); renderSess(); } };
 
 /* parent gate + settings */
 function gate(cb){ const a=3+Math.floor(Math.random()*7),b=4+Math.floor(Math.random()*6);
@@ -851,10 +873,14 @@ function gate(cb){ const a=3+Math.floor(Math.random()*7),b=4+Math.floor(Math.ran
 function parentCard(){
   const row=(id,label,opts,cur)=>'<p class="small" style="margin-top:12px">'+label+'</p><div class="row" id="'+id+'">'+opts.map(o=>'<button class="btn '+(o===cur?'go':'alt')+'" data-v="'+o+'">'+o+'</button>').join('')+'</div>';
   showCard('<h2>PARENT SETTINGS</h2>'+row('rDur','Session length (minutes)',[10,15,20],P.cfg.dur)+row('rRate','Points per minute of screen time',[1,2,3,4],P.cfg.rate)+
+    '<p class="small" style="margin-top:12px">Super words list (iReady high-frequency words)</p><div class="row" id="rGr">'+[['Up to K',0],['Up to Grade 1',1],['Up to Grade 2',2]].map(([l,v])=>'<button class="btn '+((P.cfg.grade==null?2:P.cfg.grade)===v?'go':'alt')+'" data-v="'+v+'">'+l+'</button>').join('')+'</div>'+
+    '<p class="small" style="margin-top:12px">Progress backup · last: '+(P.bk?new Date(P.bk).toLocaleDateString():'never')+'</p><div class="row"><button class="btn go" id="pBk">💾 Back up / restore</button></div>'+
     '<p class="small" style="margin-top:12px">Coach voice (uses the voices installed on this iPad)</p><div class="row"><select id="vSel" style="font-size:16px;padding:8px;max-width:100%"></select></div><div class="row" id="vRate"></div><div class="row"><button class="btn alt" id="vTest">▶ Test voice</button></div>'+
     '<p class="small" style="margin-top:12px">Target: '+(P.tgt==null?'baseline (not set)':P.tgt+' pts')+' · Bank: '+fmt1(P.bank)+' pts</p>'+
     '<div class="row"><button class="btn alt" id="pM">Bank −5</button><button class="btn alt" id="pP">Bank +5</button><button class="btn danger" id="pT">Reset target (new baseline)</button><button class="btn alt" id="pN">Change name</button></div>'+
     '<div class="row"><button class="btn go" id="bClose">Done</button></div>',true);
+  document.querySelectorAll('#rGr .btn').forEach(b=>b.onclick=()=>{P.cfg.grade=+b.dataset.v;P.sw=null;save();buildPicker();parentCard();});
+  $('pBk').onclick=backupCard;
   [['rDur','dur'],['rRate','rate']].forEach(([id,k])=>document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{P.cfg[k]=+b.dataset.v;save();renderSess();parentCard();}));
   (function(){ let vs=[]; try{vs=speechSynthesis.getVoices(); const en=vs.filter(v=>/^en/i.test(v.lang)); if(en.length) vs=en;}catch(e){}
     const sel=$('vSel'); sel.innerHTML='<option value="">Default voice</option>'+vs.map(v=>'<option value="'+v.voiceURI+'"'+(P.voice===v.voiceURI?' selected':'')+'>'+v.name+' ('+v.lang+')</option>').join('');
@@ -867,6 +893,46 @@ function parentCard(){
   $('pP').onclick=()=>{P.bank=fmt1(P.bank+5);save();renderSess();parentCard();};
   $('pN').onclick=()=>nameCard(false);
   $('pT').onclick=()=>{P.tgt=null;save();renderSess();parentCard();}; $('bClose').onclick=hideCard;
+}
+
+
+/* ============ backup / restore ============ */
+const DAY=864e5;
+function bkDue(){ return (P.sess&&P.sess.length>0||P.xp>20) && (!P.bk || Date.now()-P.bk>7*DAY); }
+async function packBackup(){
+  const o=JSON.parse(JSON.stringify(P)); o.sess=(o.sess||[]).slice(-40); o.live=null; o.st=null;
+  let bytes=new TextEncoder().encode(JSON.stringify({app:'cosmic-scribe',v:3,t:Date.now(),P:o})),pre='CSBK1:';
+  if(window.CompressionStream){ try{ const cs=new CompressionStream('gzip'),w=cs.writable.getWriter(); w.write(bytes); w.close(); bytes=new Uint8Array(await new Response(cs.readable).arrayBuffer()); pre='CSBK2:'; }catch(e){} }
+  let bin=''; for(let i=0;i<bytes.length;i+=8192) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));
+  return pre+btoa(bin);
+}
+async function unpackBackup(code){
+  const m=String(code).replace(/\s+/g,'').match(/^(CSBK[12]):([A-Za-z0-9+\/=]+)$/); if(!m) throw new Error('bad');
+  const bin=atob(m[2]); let bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  if(m[1]==='CSBK2'){ const ds=new DecompressionStream('gzip'),w=ds.writable.getWriter(); w.write(bytes); w.close(); bytes=new Uint8Array(await new Response(ds.readable).arrayBuffer()); }
+  const o=JSON.parse(new TextDecoder().decode(bytes)); if(o.app!=='cosmic-scribe'||!o.P) throw new Error('bad'); return o.P;
+}
+function copyText(t,btn){ const done=()=>{ if(btn) btn.textContent='Copied!'; };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>{ const a=$('bkTa'); a.select(); document.execCommand('copy'); done(); }); return; } }catch(e){}
+  try{ const a=$('bkTa'); a.select(); document.execCommand('copy'); done(); }catch(e){} }
+function backupCard(){
+  showCard('<h2>💾 BACKUP &amp; RESTORE</h2><p class="small">Last backup: '+(P.bk?new Date(P.bk).toLocaleString():'never')+'. Progress lives only on this iPad, so a backup protects points if the app icon is deleted or the iPad changes.</p>'+
+    '<div class="row"><button class="btn go" id="bkMk">📤 Back up now</button></div>'+
+    '<textarea id="bkTa" readonly rows="3" style="width:100%;font-size:12px;background:#000;color:#9f9;border:2px solid #2a2a66;display:none"></textarea><div class="row" id="bkAct" style="display:none"><button class="btn alt" id="bkCopy">Copy code</button></div><p class="small" id="bkNote"></p>'+
+    '<p class="small" style="margin-top:12px">Restore: paste a code (or load the saved file). This replaces the progress on this iPad.</p>'+
+    '<textarea id="bkIn" rows="3" placeholder="Paste backup code here" style="width:100%;font-size:12px;border:2px solid #2a2a66"></textarea>'+
+    '<div class="row"><label class="btn alt" style="cursor:pointer">📂 Choose file<input type="file" id="bkFile" accept=".txt,text/plain" style="display:none"></label><button class="btn danger" id="bkRs">Restore</button><button class="btn" id="bClose">Close</button></div><p class="small" id="bkErr"></p>',true);
+  $('bClose').onclick=hideCard;
+  $('bkMk').onclick=async()=>{ try{ const code=await packBackup(); const ta=$('bkTa'); ta.value=code; ta.style.display='block'; $('bkAct').style.display='flex'; P.bk=Date.now(); save(); renderSess();
+      $('bkNote').textContent='Backup code made ('+Math.round(code.length/1024)+' KB). Save it in Notes, Files or email it to yourself.'; 
+      try{ const f=new File([code],'cosmic-scribe-backup.txt',{type:'text/plain'}); if(navigator.canShare&&navigator.canShare({files:[f]})) await navigator.share({files:[f],title:'Cosmic Scribe backup'}); else if(navigator.share) await navigator.share({title:'Cosmic Scribe backup',text:code}); }catch(e){}
+    }catch(e){ $('bkNote').textContent='Could not make a backup on this device.'; } };
+  $('bkCopy').onclick=()=>copyText($('bkTa').value,$('bkCopy'));
+  $('bkFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{$('bkIn').value=String(r.result);}; r.readAsText(f); };
+  let armed=false; $('bkRs').onclick=async()=>{ $('bkErr').textContent=''; let o; try{ o=await unpackBackup($('bkIn').value); }catch(e){ $('bkErr').textContent='That code did not work. Copy the whole code and try again.'; return; }
+    if(!armed){ armed=true; $('bkRs').textContent='Tap again to replace progress'; return; }
+    try{ await idbSet('pre-restore',JSON.stringify(P)); }catch(e){}
+    P=o; ensureP(); P.bk=P.bk||Date.now(); save(); setTimeout(()=>location.reload(),200); };
 }
 
 /* player name */
@@ -886,7 +952,7 @@ function logCard(){
   const mx=TYPES.map(([k,n])=>{const a=agg[k]; return '<tr><td>'+n+'</td><td>'+a.a+'</td><td>'+a.c+'</td><td>'+(a.a?Math.round(100*a.c/a.a)+'%':'—')+'</td><td>'+a.r+'</td><td>'+a.b+'</td><td>'+(a.c?Math.round(a.s/a.c)+'s':'—')+'</td><td>'+a.p+'</td></tr>';}).join('');
   const heat=LOWER.concat(UPPER,DIGITS).map(c=>{const q=P.ls[c]; let bg='#333'; if(q&&q.a){const r=q.c/q.a; bg=r>=.8?'#2e8f3f':r>=.5?'#b8941f':'#a83232';} return '<span style="background:'+bg+'" title="'+c+': '+(q?q.c+' clean / '+q.a+' tries, '+q.r+' redos':'not tried')+'">'+c+'</span>';}).join('');
   const mxp=Math.max(1,...P.sess.slice(-14).map(x=>x.pts)); const tr=P.sess.slice(-14).map(x=>'<i class="'+(x.hit&&!x.base?'h':'')+'" style="height:'+Math.round(x.pts/mxp*100)+'%" title="'+x.d+': '+x.pts+' pts"></i>').join('');
-  showCard('<h2>📊 SESSION LOG</h2><div class="stat"><span>Bank</span><b>'+fmt1(P.bank)+' pts</b><span>Next target</span><b>'+(P.tgt==null?'baseline':P.tgt+' pts')+'</b><span>Sessions logged</span><b>'+P.sess.length+'</b></div>'+
+  showCard('<h2>📊 SESSION LOG</h2><div class="stat"><span>Bank</span><b>'+fmt1(P.bank)+' pts</b><span>Next target</span><b>'+(P.tgt==null?'baseline':P.tgt+' pts')+'</b><span>Sessions logged</span><b>'+P.sess.length+'</b><span>Lifetime fuel earned</span><b>'+fmt1(P.life.fuel)+' pts</b><span>Total banked</span><b>'+fmt1(P.life.banked)+' pts</b><span>Spent on screen time</span><b>'+fmt1(P.life.spent)+' pts</b></div>'+
     (rows?'<p class="small">Last sessions</p><table class="lg"><tr><th>DATE</th><th>MIN</th><th>PTS</th><th>TARGET</th><th>HIT</th><th>BANKED</th></tr>'+rows+'</table><p class="small">Points per session (green = target hit)</p><div class="trend">'+tr+'</div>':'<p>No sessions yet. Start Mission Control to log one.</p>')+
     '<p class="small">By type, last 7 sessions (redo = strokes erased or unfinished; bottom = bottom-up starts caught)</p><table class="lg"><tr><th>TYPE</th><th>TRIED</th><th>CLEAN</th><th>CLEAN%</th><th>REDO</th><th>BOTTOM</th><th>SEC/CLEAN</th><th>PTS</th></tr>'+mx+'</table>'+
     '<p class="small">Letter and number heat map (green clean, yellow shaky, red needs work, gray not tried)</p><div class="heat">'+heat+'</div>'+
@@ -900,9 +966,10 @@ function logCard(){
 
 try{speechSynthesis.getVoices(); speechSynthesis.addEventListener&&speechSynthesis.addEventListener('voiceschanged',()=>{});}catch(e){}
 try{ if('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('sw.js'); let had=!!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!window.__ref&&!(window.__CS&&window.__CS.S.cur)){window.__ref=1;location.reload();} had=true; }); } }catch(e){}
-updateHeader(); setMode('letters'); renderSess(); stTick(); if(!P.name) nameCard(true);
+updateHeader(); setMode('letters'); renderSess(); stTick(); if(!P.name){ let done=false; const go=()=>{ if(!done){done=true; nameCard(true);} };
+  setTimeout(go,1500); idbGet('P').then(j=>{ if(done) return; let o=null; try{o=JSON.parse(j);}catch(e){} if(o&&o.name){ done=true; P=o; ensureP(); save(); location.reload(); } else go(); }).catch(go); }
 requestAnimationFrame(loop); requestAnimationFrame(demoLoop);
-window.__CS={S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
+window.__CS={superSet,drawSuper,swPool,packBackup,unpackBackup,backupCard,PARAS2,ALLP,baseP,SUPER,idbGet,S,TPL,TOL,feed,toU,loadItem,setMode,P:()=>P,geo:()=>({U,WU,HU}),startSession,endSession,scoreRun,sessionNext,logCard,screenCard,finish};
 })();
 </script>
 </body>
